@@ -24,9 +24,7 @@ function post(url, payload, headers = CSRF) {
 }
 
 function sessionCookie(res) {
-  const header = [res.headers['set-cookie']]
-    .flat()
-    .find((c) => c?.startsWith('velvet_rope_session='));
+  const header = [res.headers['set-cookie']].flat().find((c) => c?.startsWith('velvet_rope_session='));
   return header?.split(';')[0];
 }
 
@@ -100,9 +98,7 @@ describe('POST /api/auth/sign-out', () => {
     const cookie = sessionCookie(await createGroup(auth));
     const res = await signOut(cookie);
     expect(res.statusCode).toBe(204);
-    const header = [res.headers['set-cookie']]
-      .flat()
-      .find((c) => c?.startsWith('velvet_rope_session='));
+    const header = [res.headers['set-cookie']].flat().find((c) => c?.startsWith('velvet_rope_session='));
     expect(header).toMatch(/^velvet_rope_session=;/);
     expect(header).toMatch(/; Max-Age=0/);
     expect(header).toMatch(/; Path=\//);
@@ -200,12 +196,8 @@ describe('POST /api/auth rejects', () => {
   it('a challenge issued for creating a group', async () => {
     const auth = setup();
     await createGroup(auth);
-    const createOptions = (
-      await post('/api/groups/options', { groupName: 'Plans', label: 'Other' })
-    ).json();
-    const res = await signIn(
-      auth.authenticate({ rpId: 'localhost', challenge: createOptions.challenge }),
-    );
+    const createOptions = (await post('/api/groups/options', { groupName: 'Plans', label: 'Other' })).json();
+    const res = await signIn(auth.authenticate({ rpId: 'localhost', challenge: createOptions.challenge }));
     expect(res.statusCode).toBe(400);
   });
 

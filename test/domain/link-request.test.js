@@ -81,15 +81,12 @@ describe('claimLinkRequest', () => {
     expect(result.request.role).toBe('viewer');
   });
 
-  it.each(['contributor', 'viewer', 'nobody'])(
-    'forbids a %s and leaves the request alone',
-    (role) => {
-      const request = newLinkRequest(T0);
-      const result = claimLinkRequest(request, { ...admin, role }, T0, roles);
-      expect(result).toEqual({ ok: false, reason: 'forbidden' });
-      expect(linkRequestStatus(request, T0)).toBe('pending');
-    },
-  );
+  it.each(['contributor', 'viewer', 'nobody'])('forbids a %s and leaves the request alone', (role) => {
+    const request = newLinkRequest(T0);
+    const result = claimLinkRequest(request, { ...admin, role }, T0, roles);
+    expect(result).toEqual({ ok: false, reason: 'forbidden' });
+    expect(linkRequestStatus(request, T0)).toBe('pending');
+  });
 
   it('rejects an expired request', () => {
     const request = newLinkRequest(T0);
@@ -104,14 +101,10 @@ describe('claimLinkRequest', () => {
       ok: false,
       reason: 'taken',
     });
-    expect(
-      claimLinkRequest(
-        claimed(),
-        { ...admin, groupId: 'group-b', passkeyId: 'pk-b' },
-        T0 + 2,
-        roles,
-      ),
-    ).toEqual({ ok: false, reason: 'taken' });
+    expect(claimLinkRequest(claimed(), { ...admin, groupId: 'group-b', passkeyId: 'pk-b' }, T0 + 2, roles)).toEqual({
+      ok: false,
+      reason: 'taken',
+    });
   });
 
   it('rejects a completed request', () => {

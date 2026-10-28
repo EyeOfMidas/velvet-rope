@@ -62,8 +62,7 @@ function insertMember(groupId, role) {
   return { id, cookie: `velvet_rope_session=${createSession(db, id, Date.now())}` };
 }
 
-const send = (method, url, cookie, payload = {}) =>
-  app.inject({ method, url, headers: { ...CSRF, cookie }, payload });
+const send = (method, url, cookie, payload = {}) => app.inject({ method, url, headers: { ...CSRF, cookie }, payload });
 
 async function openStream(cookie) {
   const controller = new AbortController();
@@ -73,10 +72,7 @@ async function openStream(cookie) {
   let done = false;
   const read = async (deadline) => {
     const timeout = new Promise((_, reject) =>
-      setTimeout(
-        () => reject(new Error(`timed out; stream so far: ${text}`)),
-        deadline - Date.now(),
-      ),
+      setTimeout(() => reject(new Error(`timed out; stream so far: ${text}`)), deadline - Date.now()),
     );
     const chunk = await Promise.race([reader.read(), timeout]);
     if (chunk.done) done = true;
@@ -122,9 +118,7 @@ describe('passkey events', () => {
     const creatorStream = await openStream(creator.cookie);
     const viewerStream = await openStream(viewer.cookie);
 
-    expect((await send('DELETE', `/api/members/${viewer.id}`, creator.cookie)).statusCode).toBe(
-      204,
-    );
+    expect((await send('DELETE', `/api/members/${viewer.id}`, creator.cookie)).statusCode).toBe(204);
 
     await viewerStream.waitFor((t) => t.includes('event: session-revoked'));
     await viewerStream.waitForEnd();

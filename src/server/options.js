@@ -1,5 +1,6 @@
 // Turns the plugin's options into the context every route gets. Defaults live here, so a route
 // never has to wonder whether an option was given.
+import { wrapDatabase } from './db/index.js';
 import { createHub } from './hub.js';
 import { defaultMessages } from './messages.js';
 import { createSessions } from './sessions.js';
@@ -10,8 +11,11 @@ const noLimit = async () => {};
 const noop = () => {};
 
 export function resolveOptions(options) {
-  const { db, rp, roles } = options;
-  if (!db) throw new Error('velvet-rope: `db` (a better-sqlite3 database) is required');
+  const { rp, roles } = options;
+  if (!options.db) {
+    throw new Error('velvet-rope: `db` (a better-sqlite3 or node:sqlite database) is required');
+  }
+  const db = wrapDatabase(options.db);
   if (!rp?.id || !rp?.name || !rp?.origin) {
     throw new Error('velvet-rope: `rp` needs { id, name, origin }');
   }
@@ -51,7 +55,6 @@ export function resolveOptions(options) {
     messages,
     sessions: createSessions({ db, cookieName: cookies.session }),
     /** Sends { error: code, message } with the app's wording for `code`. */
-    refuse: (reply, status, code) =>
-      reply.code(status).send({ error: code, message: messages[code] ?? code }),
+    refuse: (reply, status, code) => reply.code(status).send({ error: code, message: messages[code] ?? code }),
   };
 }

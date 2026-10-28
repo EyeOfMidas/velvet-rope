@@ -23,9 +23,12 @@ export function createSessions({ db, cookieName }) {
     /** Inserts a session row and returns the raw cookie value (never stored). */
     create(passkeyId, now) {
       const token = randomToken();
-      db.prepare(
-        'INSERT INTO sessions (id_hash, passkey_id, created_at, expires_at) VALUES (?, ?, ?, ?)',
-      ).run(sha256Hex(token), passkeyId, now, sessionExpiresAt(now));
+      db.prepare('INSERT INTO sessions (id_hash, passkey_id, created_at, expires_at) VALUES (?, ?, ?, ?)').run(
+        sha256Hex(token),
+        passkeyId,
+        now,
+        sessionExpiresAt(now),
+      );
       return token;
     },
 
@@ -64,10 +67,7 @@ export function createSessions({ db, cookieName }) {
         if (row) db.prepare('DELETE FROM sessions WHERE id_hash = ?').run(idHash);
         return null;
       }
-      db.prepare('UPDATE sessions SET expires_at = ? WHERE id_hash = ?').run(
-        sessionExpiresAt(now),
-        idHash,
-      );
+      db.prepare('UPDATE sessions SET expires_at = ? WHERE id_hash = ?').run(sessionExpiresAt(now), idHash);
       return {
         token,
         passkey: { id: row.passkey_id, label: row.label, role: row.role },

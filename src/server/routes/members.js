@@ -14,27 +14,18 @@ function item(row, session) {
   return { ...row, current: row.id === session.passkey.id };
 }
 
-export default async function memberRoutes(
-  app,
-  { db, now, roles, events, sessions, hooks, refuse },
-) {
+export default async function memberRoutes(app, { db, now, roles, events, sessions, hooks, refuse }) {
   const signedIn = { onRequest: app.requireSession };
   const refuseVerdict = (reply, verdict) => refuse(reply, ...REFUSALS[verdict.reason]);
 
   /** A live passkey of the group, or undefined. Never reads across groups. */
   const findLive = (groupId, id) =>
-    db
-      .prepare(
-        `SELECT ${COLUMNS} FROM passkeys WHERE id = ? AND group_id = ? AND revoked_at IS NULL`,
-      )
-      .get(id, groupId);
+    db.prepare(`SELECT ${COLUMNS} FROM passkeys WHERE id = ? AND group_id = ? AND revoked_at IS NULL`).get(id, groupId);
 
   /** How many live admins the group has, for the last-admin guard. */
   const adminCount = (groupId) =>
     db
-      .prepare(
-        `SELECT COUNT(*) FROM passkeys WHERE group_id = ? AND role = ? AND revoked_at IS NULL`,
-      )
+      .prepare(`SELECT COUNT(*) FROM passkeys WHERE group_id = ? AND role = ? AND revoked_at IS NULL`)
       .pluck()
       .get(groupId, roles.admin);
 
@@ -42,11 +33,7 @@ export default async function memberRoutes(
   function revokePasskey(groupId, actorId, target, action) {
     const at = now();
     db.transaction(() => {
-      db.prepare('UPDATE passkeys SET revoked_at = ? WHERE id = ? AND group_id = ?').run(
-        at,
-        target.id,
-        groupId,
-      );
+      db.prepare('UPDATE passkeys SET revoked_at = ? WHERE id = ? AND group_id = ?').run(at, target.id, groupId);
       db.prepare('DELETE FROM sessions WHERE passkey_id = ?').run(target.id);
       hooks.onAudit(db, {
         groupId,

@@ -38,8 +38,7 @@ function setup({ camera = fakeCamera(), frames = [] } = {}) {
 }
 
 const dialog = () => document.querySelector('[role=dialog]');
-const button = (name) =>
-  [...document.querySelectorAll('button')].find((b) => b.textContent === name && !b.hidden);
+const button = (name) => [...document.querySelectorAll('button')].find((b) => b.textContent === name && !b.hidden);
 
 beforeEach(() => {
   document.body.replaceChildren();

@@ -41,9 +41,7 @@ export function createSoftAuthenticator({ origin, userVerified = true } = {}) {
   }
 
   function clientData(type, challenge, overrideOrigin) {
-    return Buffer.from(
-      JSON.stringify({ type, challenge, origin: overrideOrigin ?? origin, crossOrigin: false }),
-    );
+    return Buffer.from(JSON.stringify({ type, challenge, origin: overrideOrigin ?? origin, crossOrigin: false }));
   }
 
   return {
@@ -105,11 +103,7 @@ export function createSoftAuthenticator({ origin, userVerified = true } = {}) {
         uint32(credential.counter),
       ]);
       const clientDataJSON = clientData('webauthn.get', options.challenge, overrideOrigin);
-      const signature = sign(
-        'sha256',
-        Buffer.concat([authData, sha256(clientDataJSON)]),
-        credential.privateKey,
-      );
+      const signature = sign('sha256', Buffer.concat([authData, sha256(clientDataJSON)]), credential.privateKey);
       return {
         id: credential.id,
         rawId: credential.id,

@@ -111,9 +111,7 @@ describe("groupCreation: 'invite'", () => {
     const code = createInvite(db, clock.t);
     const first = await post('/api/groups/options', { ...BODY, invite: code });
     const second = await post('/api/groups/options', { ...BODY, invite: code });
-    expect((await post('/api/groups', { response: auth.register(first.json()) })).statusCode).toBe(
-      201,
-    );
+    expect((await post('/api/groups', { response: auth.register(first.json()) })).statusCode).toBe(201);
     const other = createSoftAuthenticator({ origin: ORIGIN });
     const late = await post('/api/groups', { response: other.register(second.json()) });
     expect(late.statusCode).toBe(403);

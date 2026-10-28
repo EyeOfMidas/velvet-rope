@@ -13,11 +13,7 @@ export class VelvetRopeError extends Error {
 async function handle(res, path) {
   const body = await res.json().catch(() => null);
   if (!res.ok) {
-    throw new VelvetRopeError(
-      res.status,
-      body?.error ?? null,
-      body?.message ?? body?.error ?? `${res.status} ${path}`,
-    );
+    throw new VelvetRopeError(res.status, body?.error ?? null, body?.message ?? body?.error ?? `${res.status} ${path}`);
   }
   return body;
 }
@@ -38,8 +34,7 @@ export function createApi({ csrfHeader = 'X-Velvet-Rope', fetch = globalThis.fet
       path,
     );
   return {
-    getJson: async (path) =>
-      handle(await fetch(path, { headers: { Accept: 'application/json' } }), path),
+    getJson: async (path) => handle(await fetch(path, { headers: { Accept: 'application/json' } }), path),
     postJson: (path, body) => send('POST', path, body),
     patchJson: (path, body) => send('PATCH', path, body),
     deleteJson: (path, body = {}) => send('DELETE', path, body),

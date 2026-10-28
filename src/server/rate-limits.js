@@ -39,17 +39,12 @@ export function createRateLimiter(app, limits, { keys = {} } = {}) {
     app.register(rateLimit, {
       global: false,
       errorResponseBuilder: (request, context) =>
-        new TooManyRequests(
-          context.statusCode,
-          `Too many requests. Try again in ${context.after}.`,
-        ),
+        new TooManyRequests(context.statusCode, `Too many requests. Try again in ${context.after}.`),
     });
     // The same { error, message } shape as every other refusal.
     app.setErrorHandler((error, request, reply) => {
       if (error instanceof TooManyRequests) {
-        return reply
-          .code(error.statusCode)
-          .send({ error: 'too_many_requests', message: error.message });
+        return reply.code(error.statusCode).send({ error: 'too_many_requests', message: error.message });
       }
       return reply.send(error);
     });

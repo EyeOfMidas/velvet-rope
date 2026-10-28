@@ -16,7 +16,8 @@ npm install velvet-rope
 
 Peer dependencies, depending on the parts you use: `fastify`, `@simplewebauthn/server` and
 `@fastify/rate-limit` (server); `@simplewebauthn/browser`, `qrcode` and `jsqr` (browser). The
-server takes a `better-sqlite3` database.
+server works with either `better-sqlite3` or Node's built-in `node:sqlite` (Node 22.5+; no
+install needed): pass a handle from either, or let `openDatabase` pick whichever is available.
 
 | Import                         | What it is                                                                         |
 | ------------------------------ | ---------------------------------------------------------------------------------- |
@@ -75,12 +76,14 @@ admin role lacks velvet-rope's capabilities.
 ## 2. Server
 
 ```js
-import Database from 'better-sqlite3';
 import Fastify from 'fastify';
-import velvetRope, { migrate, startSweeper } from 'velvet-rope/server';
+import velvetRope, { migrate, openDatabase, startSweeper } from 'velvet-rope/server';
 import { roles } from './roles.js';
 
-const db = new Database('data/app.db');
+// better-sqlite3 if installed, otherwise node:sqlite. openDatabase('data/app.db', { driver })
+// forces one; `new Database(...)` / `new DatabaseSync(...)` handles work too, wherever velvet-rope
+// takes a `db`.
+const db = openDatabase('data/app.db');
 db.pragma('foreign_keys = ON');
 migrate(db); // velvet-rope's tables, tracked in velvet_rope_schema
 db.exec(`CREATE TABLE IF NOT EXISTS pages (

@@ -35,9 +35,7 @@ async function createGroup(auth, body) {
 }
 
 function sessionCookie(res) {
-  const header = [res.headers['set-cookie']]
-    .flat()
-    .find((c) => c.startsWith('velvet_rope_session='));
+  const header = [res.headers['set-cookie']].flat().find((c) => c.startsWith('velvet_rope_session='));
   return header?.split(';')[0];
 }
 
@@ -86,9 +84,7 @@ describe('POST /api/groups', () => {
       passkey: { id: expect.any(String), label: 'Firefox on Windows', role: 'admin' },
       group: { id: expect.any(String), name: 'Plans' },
     });
-    expect([count('groups'), count('passkeys'), count('credentials'), count('sessions')]).toEqual([
-      1, 1, 1, 1,
-    ]);
+    expect([count('groups'), count('passkeys'), count('credentials'), count('sessions')]).toEqual([1, 1, 1, 1]);
     const passkey = db.prepare('SELECT * FROM passkeys').get();
     expect(passkey.user_handle).toBe(auth.credentials[0].userHandle);
     const credential = db.prepare('SELECT * FROM credentials').get();
@@ -101,9 +97,7 @@ describe('POST /api/groups', () => {
   it('sets an HttpOnly, Secure, SameSite=Strict session cookie for the whole site', async () => {
     const auth = setup();
     const res = await createGroup(auth);
-    const header = [res.headers['set-cookie']]
-      .flat()
-      .find((c) => c.startsWith('velvet_rope_session='));
+    const header = [res.headers['set-cookie']].flat().find((c) => c.startsWith('velvet_rope_session='));
     expect(header).toMatch(/; HttpOnly/i);
     expect(header).toMatch(/; Secure/i);
     expect(header).toMatch(/; SameSite=Strict/i);

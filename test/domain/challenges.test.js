@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  CHALLENGE_TTL_MS,
-  challengeExpiresAt,
-  isChallengeLive,
-} from '../../src/domain/challenges.js';
+import { CHALLENGE_TTL_MS, challengeExpiresAt, isChallengeLive } from '../../src/domain/challenges.js';
 
 describe('challenge expiry', () => {
   it('expires five minutes after it is issued', () => {

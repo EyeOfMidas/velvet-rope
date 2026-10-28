@@ -40,8 +40,6 @@ describe('mountScanButton', () => {
     const { button, options, scanned } = setup(vi.fn(async () => Promise.reject(failure)));
     button.click();
     scanned().onToken('tok');
-    await vi.waitFor(() =>
-      expect(options.onError).toHaveBeenCalledWith('This join code has expired.'),
-    );
+    await vi.waitFor(() => expect(options.onError).toHaveBeenCalledWith('This join code has expired.'));
   });
 });

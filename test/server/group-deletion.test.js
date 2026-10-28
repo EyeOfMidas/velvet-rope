@@ -25,15 +25,12 @@ function setup() {
 }
 
 const me = (cookie) => app.inject({ method: 'GET', url: '/api/me', headers: { cookie } });
-const send = (method, url, cookie, payload = {}) =>
-  app.inject({ method, url, headers: { ...CSRF, cookie }, payload });
+const send = (method, url, cookie, payload = {}) => app.inject({ method, url, headers: { ...CSRF, cookie }, payload });
 const deleteGroup = (cookie, name) => send('DELETE', '/api/group', cookie, { name });
 
 async function createGroup(groupName = 'Plans') {
   const auth = createSoftAuthenticator({ origin: ORIGIN });
-  const options = (
-    await send('POST', '/api/groups/options', '', { groupName, label: 'Phone' })
-  ).json();
+  const options = (await send('POST', '/api/groups/options', '', { groupName, label: 'Phone' })).json();
   const res = await send('POST', '/api/groups', '', { response: auth.register(options) });
   const cookie = [res.headers['set-cookie']]
     .flat()
@@ -52,8 +49,7 @@ function insertMember(groupId, role) {
   return { id, cookie: `velvet_rope_session=${createSession(db, id, Date.now())}` };
 }
 
-const count = (table, groupId) =>
-  db.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE group_id = ?`).get(groupId).n;
+const count = (table, groupId) => db.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE group_id = ?`).get(groupId).n;
 
 describe('DELETE /api/group', () => {
   it('lets an admin delete the group and everything in it', async () => {
@@ -67,13 +63,9 @@ describe('DELETE /api/group', () => {
 
     const res = await deleteGroup(creator.cookie, 'Plans');
     expect(res.statusCode).toBe(204);
-    expect(
-      [res.headers['set-cookie']].flat().some((c) => /^velvet_rope_session=;/.test(c ?? '')),
-    ).toBe(true);
+    expect([res.headers['set-cookie']].flat().some((c) => /^velvet_rope_session=;/.test(c ?? ''))).toBe(true);
 
-    expect(db.prepare('SELECT COUNT(*) AS n FROM groups WHERE id = ?').get(creator.groupId).n).toBe(
-      0,
-    );
+    expect(db.prepare('SELECT COUNT(*) AS n FROM groups WHERE id = ?').get(creator.groupId).n).toBe(0);
     for (const table of ['passkeys', 'link_requests', 'audit_log']) {
       expect(count(table, creator.groupId)).toBe(0);
     }

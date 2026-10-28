@@ -1,10 +1,7 @@
 // DELETE /group removes the signed-in group (needs 'deleteGroup'). Every row that belongs to it
 // goes through ON DELETE CASCADE: passkeys and their credentials and sessions, link requests, and
 // any app table that references groups(id) the same way.
-export default async function currentGroupRoutes(
-  app,
-  { db, roles, events, sessions, hooks, refuse },
-) {
+export default async function currentGroupRoutes(app, { db, roles, events, sessions, hooks, refuse }) {
   app.delete('/group', { onRequest: app.requireSession }, async (request, reply) => {
     const { session } = request;
     if (!roles.can(session.passkey.role, 'deleteGroup')) {

@@ -1,16 +1,15 @@
 // Group-creation invites: a 256-bit random code, stored only as its SHA-256 hash, single use.
 // Codes are never logged.
 import { inviteExpiresAt, isInviteUsable } from '../domain/invites.js';
+import { wrapDatabase } from './db/index.js';
 import { randomToken, sha256Hex } from './tokens.js';
 
 /** Inserts an invite and returns the raw code (never stored). */
-export function createInvite(db, now) {
+export function createInvite(database, now) {
   const code = randomToken();
-  db.prepare('INSERT INTO invites (code_hash, created_at, expires_at) VALUES (?, ?, ?)').run(
-    sha256Hex(code),
-    now,
-    inviteExpiresAt(now),
-  );
+  wrapDatabase(database)
+    .prepare('INSERT INTO invites (code_hash, created_at, expires_at) VALUES (?, ?, ?)')
+    .run(sha256Hex(code), now, inviteExpiresAt(now));
   return code;
 }
 

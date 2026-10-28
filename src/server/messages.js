@@ -7,8 +7,7 @@ export function defaultMessages({ roles, csrfHeader }) {
     forbidden: "You don't have permission to do that",
     bad_challenge: 'Unknown or expired challenge',
     verification_failed: 'Passkey verification failed',
-    removed:
-      'This passkey was removed from its group. Ask someone in the group to link this device again.',
+    removed: 'This passkey was removed from its group. Ask someone in the group to link this device again.',
 
     group_creation_closed: 'Creating new groups is turned off on this server',
     invite_required: 'Creating a group on this server needs an invite link',

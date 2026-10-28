@@ -6,10 +6,12 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { wrapDatabase } from './db/index.js';
 
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), 'migrations');
 
-export function migrate(db) {
+export function migrate(database) {
+  const db = wrapDatabase(database);
   db.exec('CREATE TABLE IF NOT EXISTS velvet_rope_schema (version INTEGER NOT NULL)');
   const current = db.prepare('SELECT MAX(version) FROM velvet_rope_schema').pluck().get() ?? 0;
   const files = readdirSync(MIGRATIONS_DIR)

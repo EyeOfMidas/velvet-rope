@@ -64,8 +64,7 @@ function insertMember(groupId, role, label = `${role} device`) {
   return { id, cookie: `velvet_rope_session=${createSession(db, id, clock.t)}` };
 }
 
-const list = (cookie) =>
-  app.inject({ method: 'GET', url: '/api/members', headers: cookie ? { cookie } : {} });
+const list = (cookie) => app.inject({ method: 'GET', url: '/api/members', headers: cookie ? { cookie } : {} });
 const patch = (cookie, id, payload) =>
   app.inject({
     method: 'PATCH',
@@ -171,9 +170,7 @@ describe('PATCH /api/members/:id', () => {
     const creator = await createGroup();
     const viewer = insertMember(creator.groupId, 'viewer');
     expect((await patch(creator.cookie, viewer.id, { label: '  ' })).statusCode).toBe(400);
-    expect((await patch(creator.cookie, viewer.id, { label: 'x'.repeat(61) })).statusCode).toBe(
-      400,
-    );
+    expect((await patch(creator.cookie, viewer.id, { label: 'x'.repeat(61) })).statusCode).toBe(400);
     expect((await patch(creator.cookie, viewer.id, { label: 7 })).statusCode).toBe(400);
   });
 
@@ -188,9 +185,7 @@ describe('PATCH /api/members/:id', () => {
     setup();
     const creator = await createGroup();
     const viewer = insertMember(creator.groupId, 'viewer');
-    expect((await patch('velvet_rope_session=nope', viewer.id, { label: 'x' })).statusCode).toBe(
-      401,
-    );
+    expect((await patch('velvet_rope_session=nope', viewer.id, { label: 'x' })).statusCode).toBe(401);
     const noCsrf = await app.inject({
       method: 'PATCH',
       url: `/api/members/${viewer.id}`,
@@ -215,12 +210,8 @@ describe('DELETE /api/members/:id', () => {
     const res = await revoke(creator.cookie, viewer.id);
     expect(res.statusCode).toBe(204);
     expect((await me(viewer.cookie)).statusCode).toBe(401);
-    expect(
-      db.prepare('SELECT COUNT(*) AS n FROM sessions WHERE passkey_id = ?').get(viewer.id).n,
-    ).toBe(0);
-    expect(
-      db.prepare('SELECT revoked_at FROM passkeys WHERE id = ?').get(viewer.id).revoked_at,
-    ).toBe(clock.t);
+    expect(db.prepare('SELECT COUNT(*) AS n FROM sessions WHERE passkey_id = ?').get(viewer.id).n).toBe(0);
+    expect(db.prepare('SELECT revoked_at FROM passkeys WHERE id = ?').get(viewer.id).revoked_at).toBe(clock.t);
     expect((await list(creator.cookie)).json().map((p) => p.id)).toEqual([creator.id]);
   });
 
@@ -249,9 +240,7 @@ describe('POST /api/members/leave', () => {
     const viewer = insertMember(creator.groupId, 'viewer');
     const res = await leave(viewer.cookie);
     expect(res.statusCode).toBe(204);
-    const cleared = [res.headers['set-cookie']]
-      .flat()
-      .find((c) => c?.startsWith('velvet_rope_session='));
+    const cleared = [res.headers['set-cookie']].flat().find((c) => c?.startsWith('velvet_rope_session='));
     expect(cleared).toMatch(/^velvet_rope_session=; .*Max-Age=0/);
     expect((await me(viewer.cookie)).statusCode).toBe(401);
     expect((await list(creator.cookie)).json().map((p) => p.id)).toEqual([creator.id]);
@@ -386,9 +375,7 @@ describe('permissions are enforced by the API', () => {
 describe('audit log', () => {
   const entries = () =>
     db
-      .prepare(
-        'SELECT group_id, actor_passkey_id, action, target, detail_json, at FROM audit_log ORDER BY id',
-      )
+      .prepare('SELECT group_id, actor_passkey_id, action, target, detail_json, at FROM audit_log ORDER BY id')
       .all()
       .map(({ detail_json, ...rest }) => ({ ...rest, detail: JSON.parse(detail_json) }));
 

@@ -69,8 +69,7 @@ function setup(overrides = {}) {
   return { container, deps, view };
 }
 
-const button = (root, name) =>
-  [...root.querySelectorAll('button')].find((b) => b.textContent === name && !b.hidden);
+const button = (root, name) => [...root.querySelectorAll('button')].find((b) => b.textContent === name && !b.hidden);
 const text = (root) => root.textContent.replace(/\s+/g, ' ');
 
 async function showCode(container) {
@@ -88,9 +87,7 @@ describe('join a group', () => {
   it('asks for a label, pre-filled from the browser', () => {
     const { container } = setup();
     const input = container.querySelector('#passkey-label');
-    expect(container.querySelector('label[for="passkey-label"]').textContent).toBe(
-      'Name this passkey',
-    );
+    expect(container.querySelector('label[for="passkey-label"]').textContent).toBe('Name this passkey');
     expect(input.value).toBe('Firefox on Windows');
     expect(button(container, 'Show QR code').type).toBe('submit');
   });
@@ -166,9 +163,7 @@ describe('join a group', () => {
     expect(lastSource().close).toHaveBeenCalled();
     button(container, 'Get a new code').click();
     await vi.waitFor(() =>
-      expect(container.querySelector('[data-testid=link-url]').value).toBe(
-        `${ORIGIN}/link#${TOKEN}2`,
-      ),
+      expect(container.querySelector('[data-testid=link-url]').value).toBe(`${ORIGIN}/link#${TOKEN}2`),
     );
     expect(deps.postJson).toHaveBeenLastCalledWith('/api/link-requests', {
       label: 'Firefox on Windows',
@@ -178,9 +173,7 @@ describe('join a group', () => {
   it('says the code expired when the server no longer accepts the claimed request', async () => {
     const { container, deps } = setup();
     await showCode(container);
-    deps.postJson.mockRejectedValueOnce(
-      new VelvetRopeError(409, 'link_not_claimed', 'Join request is not claimed'),
-    );
+    deps.postJson.mockRejectedValueOnce(new VelvetRopeError(409, 'link_not_claimed', 'Join request is not claimed'));
     lastSource().emit('status', { status: 'claimed' });
     await vi.waitFor(() => expect(text(container)).toContain('This code expired'));
     expect(button(container, 'Get a new code')).toBeTruthy();
@@ -208,13 +201,9 @@ describe('join a group', () => {
 
   it('shows the server’s message when the request can’t be started', async () => {
     const { container, deps } = setup();
-    deps.postJson.mockRejectedValueOnce(
-      new VelvetRopeError(429, 'too_many_requests', 'Too many requests'),
-    );
+    deps.postJson.mockRejectedValueOnce(new VelvetRopeError(429, 'too_many_requests', 'Too many requests'));
     container.querySelector('form').requestSubmit();
-    await vi.waitFor(() =>
-      expect(container.querySelector('[role=alert]').textContent).toBe('Too many requests'),
-    );
+    await vi.waitFor(() => expect(container.querySelector('[role=alert]').textContent).toBe('Too many requests'));
     expect(button(container, 'Show QR code').disabled).toBe(false);
   });
 

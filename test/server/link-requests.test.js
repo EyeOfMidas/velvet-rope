@@ -119,9 +119,7 @@ describe('POST /api/link-requests', () => {
       expiresAt: clock.t + 5 * MINUTE,
     });
     expect(Buffer.from(token, 'base64url')).toHaveLength(32);
-    const header = [res.headers['set-cookie']]
-      .flat()
-      .find((c) => c.startsWith('velvet_rope_link='));
+    const header = [res.headers['set-cookie']].flat().find((c) => c.startsWith('velvet_rope_link='));
     expect(header).toBe(
       `velvet_rope_link=${token}; Path=/api/link-requests; Max-Age=300; HttpOnly; Secure; SameSite=Strict`,
     );
@@ -206,12 +204,8 @@ describe('the linking ceremony', () => {
 
     const session = cookieFrom(done, 'velvet_rope_session');
     expect(session).toBeDefined();
-    const cleared = [done.headers['set-cookie']]
-      .flat()
-      .find((c) => c.startsWith('velvet_rope_link='));
-    expect(cleared).toBe(
-      'velvet_rope_link=; Path=/api/link-requests; Max-Age=0; HttpOnly; Secure; SameSite=Strict',
-    );
+    const cleared = [done.headers['set-cookie']].flat().find((c) => c.startsWith('velvet_rope_link='));
+    expect(cleared).toBe('velvet_rope_link=; Path=/api/link-requests; Max-Age=0; HttpOnly; Secure; SameSite=Strict');
     expect((await me(session)).json()).toEqual(done.json());
     expect((await current(link)).json()).toMatchObject({ status: 'completed', groupName: 'Plans' });
 
@@ -316,21 +310,18 @@ describe('POST /api/link-requests/claim', () => {
     expect((await current(link)).json().status).toBe('claimed');
   });
 
-  it.each(['contributor', 'viewer'])(
-    'rejects a %s and leaves the request pending',
-    async (role) => {
-      setup();
-      const creator = await createGroup();
-      const member = insertMember(creator.group.id, role);
-      const { token, link } = await newDevice();
+  it.each(['contributor', 'viewer'])('rejects a %s and leaves the request pending', async (role) => {
+    setup();
+    const creator = await createGroup();
+    const member = insertMember(creator.group.id, role);
+    const { token, link } = await newDevice();
 
-      const res = await claim(member, token);
-      expect(res.statusCode).toBe(403);
-      expect(res.json()).toMatchObject({ error: 'link_forbidden' });
-      expect((await current(link)).json().status).toBe('pending');
-      expect((await claim(creator.cookie, token)).statusCode).toBe(200);
-    },
-  );
+    const res = await claim(member, token);
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toMatchObject({ error: 'link_forbidden' });
+    expect((await current(link)).json().status).toBe('pending');
+    expect((await claim(creator.cookie, token)).statusCode).toBe(200);
+  });
 
   it('rejects an unknown token with 410', async () => {
     setup();

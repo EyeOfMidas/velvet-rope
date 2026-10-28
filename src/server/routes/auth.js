@@ -1,9 +1,6 @@
 // Sign in: a discoverable passkey assertion identifies both the passkey and its group, so the
 // browser offers every passkey this site has and the one picked decides where you land.
-import {
-  generateAuthenticationOptions,
-  verifyAuthenticationResponse,
-} from '@simplewebauthn/server';
+import { generateAuthenticationOptions, verifyAuthenticationResponse } from '@simplewebauthn/server';
 import { challengeOf, saveChallenge, takeChallenge } from '../challenges.js';
 
 const PURPOSE = 'sign-in';

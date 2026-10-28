@@ -40,11 +40,7 @@ describe('session cookie name', () => {
     // The dev name isn't read in prod.
     expect((await me(`velvet_rope_session=${value}`)).statusCode).toBe(401);
 
-    const out = await post(
-      '/api/auth/sign-out',
-      {},
-      { cookie: `__Host-velvet_rope_session=${value}` },
-    );
+    const out = await post('/api/auth/sign-out', {}, { cookie: `__Host-velvet_rope_session=${value}` });
     expect([out.headers['set-cookie']].flat()[0]).toMatch(/^__Host-velvet_rope_session=; Path=\/;/);
     expect((await me(`__Host-velvet_rope_session=${value}`)).statusCode).toBe(401);
   });

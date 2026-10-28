@@ -63,9 +63,7 @@ function welcome(message = '') {
         run(async () => home(await client.signIn())),
       ),
       button('Create a group', createForm),
-      button('Join a group', () =>
-        mountJoin(root, { client, onJoined: home, onCancel: () => welcome() }),
-      ),
+      button('Join a group', () => mountJoin(root, { client, onJoined: home, onCancel: () => welcome() })),
     ),
     error,
   );
@@ -114,8 +112,7 @@ async function home(me) {
   async function refresh() {
     const list = await api('GET', '/api/notes');
     notes.replaceChildren(...list.map((note) => noteItem(note)));
-    if (roles.can(me.passkey.role, 'manageMembers'))
-      members.replaceChildren(...(await memberList()));
+    if (roles.can(me.passkey.role, 'manageMembers')) members.replaceChildren(...(await memberList()));
     else members.replaceChildren();
   }
 
@@ -134,9 +131,7 @@ async function home(me) {
         button('Edit', () => {
           const input = h('input', { value: note.text, ariaLabel: 'Note text' });
           const save = button('Save', async () => {
-            await api('PUT', `/api/notes/${note.id}`, { text: input.value }).catch((e) =>
-              say(e.message),
-            );
+            await api('PUT', `/api/notes/${note.id}`, { text: input.value }).catch((e) => say(e.message));
             refresh();
           });
           li.replaceChildren(input, save);
@@ -146,9 +141,7 @@ async function home(me) {
     }
     if (roles.can(me.passkey.role, 'delete')) {
       actions.append(
-        button('Delete', () =>
-          api('DELETE', `/api/notes/${note.id}`).then(refresh, (e) => say(e.message)),
-        ),
+        button('Delete', () => api('DELETE', `/api/notes/${note.id}`).then(refresh, (e) => say(e.message))),
       );
     }
     li.append(actions);
@@ -165,14 +158,10 @@ async function home(me) {
         ...list.map((member) => {
           const select = h('select', { ariaLabel: `Role for ${member.label}` });
           select.append(
-            ...roles.names.map((role) =>
-              h('option', { value: role, selected: role === member.role }, role),
-            ),
+            ...roles.names.map((role) => h('option', { value: role, selected: role === member.role }, role)),
           );
           select.addEventListener('change', () =>
-            client
-              .updateMember(member.id, { role: select.value })
-              .then(refresh, (e) => say(e.message)),
+            client.updateMember(member.id, { role: select.value }).then(refresh, (e) => say(e.message)),
           );
           return h('li', { className: 'row' }, h('span', {}, member.label), select);
         }),
@@ -204,11 +193,7 @@ async function home(me) {
       });
     }
     root.replaceChildren(
-      h(
-        'p',
-        { dataset: { testid: 'signed-in' } },
-        `${passkey.label} in ${group.name} · ${passkey.role}`,
-      ),
+      h('p', { dataset: { testid: 'signed-in' } }, `${passkey.label} in ${group.name} · ${passkey.role}`),
       toolbar,
       status,
       h('h2', {}, 'Notes'),

@@ -1,5 +1,6 @@
 // velvet-rope/server: the Fastify plugin and what an app needs around it.
 export { default } from './plugin.js';
+export { openDatabase, wrapDatabase } from './db/index.js';
 export { migrate } from './migrate.js';
 export { sweepExpired, startSweeper, SWEEP_INTERVAL_MS } from './sweep.js';
 export { createRateLimiter, DEFAULT_RATE_LIMITS } from './rate-limits.js';

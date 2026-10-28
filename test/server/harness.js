@@ -1,10 +1,9 @@
-// A minimal app around the plugin, the way an app would set it up: a better-sqlite3 database
+// A minimal app around the plugin, the way an app would set it up: a SQLite database
 // with velvet-rope's tables plus one app table (an audit log written through the onAudit hook),
 // a role matrix, and optional rate limits.
-import Database from 'better-sqlite3';
 import Fastify from 'fastify';
 import { defineRoles } from '../../src/domain/roles.js';
-import velvetRope, { createHub, createRateLimiter, migrate } from '../../src/server/index.js';
+import velvetRope, { createHub, createRateLimiter, migrate, openDatabase } from '../../src/server/index.js';
 
 export const ORIGIN = 'http://localhost:5173';
 export const config = { rpId: 'localhost', rpName: 'Test app', origin: ORIGIN };
@@ -21,7 +20,8 @@ export const roles = defineRoles(
 );
 
 export function openDb(path = ':memory:') {
-  const db = new Database(path);
+  // VELVET_ROPE_DRIVER=node:sqlite runs the whole suite on that driver.
+  const db = openDatabase(path, { driver: process.env.VELVET_ROPE_DRIVER || undefined });
   db.pragma('foreign_keys = ON');
   migrate(db);
   db.exec(`CREATE TABLE audit_log (

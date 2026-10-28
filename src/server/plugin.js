@@ -19,15 +19,7 @@ import linkRequestRoutes from './routes/link-requests.js';
 import meRoutes from './routes/me.js';
 import memberRoutes from './routes/members.js';
 
-const ROUTES = [
-  groupRoutes,
-  currentGroupRoutes,
-  authRoutes,
-  meRoutes,
-  memberRoutes,
-  linkRequestRoutes,
-  eventRoutes,
-];
+const ROUTES = [groupRoutes, currentGroupRoutes, authRoutes, meRoutes, memberRoutes, linkRequestRoutes, eventRoutes];
 
 export default async function velvetRope(app, options) {
   const ctx = resolveOptions(options);

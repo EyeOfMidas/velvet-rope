@@ -50,11 +50,7 @@ export default async function groupRoutes(
     const group = { id: randomUUID(), name: pending.groupName };
     const created = db.transaction(() => {
       if (groupCreation === 'invite' && !spendInvite(db, pending.inviteHash ?? '', t)) return null;
-      db.prepare('INSERT INTO groups (id, name, created_at) VALUES (?, ?, ?)').run(
-        group.id,
-        group.name,
-        t,
-      );
+      db.prepare('INSERT INTO groups (id, name, created_at) VALUES (?, ?, ?)').run(group.id, group.name, t);
       const passkey = insertPasskey(db, {
         groupId: group.id,
         label: pending.label,

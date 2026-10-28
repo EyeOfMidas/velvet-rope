@@ -14,12 +14,7 @@ const parse = (event) => {
 
 export function connectSessionEvents(
   source,
-  {
-    onMembersChanged = () => {},
-    onRoleChanged = () => {},
-    onRevoked = () => {},
-    onGroupDeleted = () => {},
-  },
+  { onMembersChanged = () => {}, onRoleChanged = () => {}, onRevoked = () => {}, onGroupDeleted = () => {} },
 ) {
   const listeners = {
     'members-changed': () => onMembersChanged(),

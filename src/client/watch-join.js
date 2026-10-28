@@ -11,12 +11,7 @@ const parse = (event) => {
   }
 };
 
-export function watchJoin({
-  client,
-  onStatus,
-  EventSource = globalThis.EventSource,
-  pollEveryMs = POLL_EVERY_MS,
-}) {
+export function watchJoin({ client, onStatus, EventSource = globalThis.EventSource, pollEveryMs = POLL_EVERY_MS }) {
   let source = null;
   let timer = null;
   let stopped = false;

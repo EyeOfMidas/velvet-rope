@@ -11,8 +11,7 @@ export const SCANNER_TEXT = Object.freeze({
   torchOn: 'Torch on',
   torchOff: 'Torch off',
   cancel: 'Cancel',
-  blocked:
-    'Camera access was blocked. Allow the camera for this site, or open the link with your camera app.',
+  blocked: 'Camera access was blocked. Allow the camera for this site, or open the link with your camera app.',
   'no-camera': 'No camera was found. Open the link on this device instead.',
   failed: 'Could not open the camera. Open the link with your camera app instead.',
 });

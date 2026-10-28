@@ -2,6 +2,8 @@
 // invites past their expiry. Expiry is checked wherever these are read, so the sweep only
 // keeps the tables small. The app starts it next to app.listen(); the plugin doesn't, so tests
 // stay deterministic.
+import { wrapDatabase } from './db/index.js';
+
 const TABLES = {
   sessions: 'sessions',
   challenges: 'challenges',
@@ -12,7 +14,8 @@ const TABLES = {
 export const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
 
 /** Deletes every expired row as of `now`; returns how many went from each table. */
-export function sweepExpired(db, now) {
+export function sweepExpired(database, now) {
+  const db = wrapDatabase(database);
   return db.transaction(() =>
     Object.fromEntries(
       Object.entries(TABLES).map(([key, table]) => [

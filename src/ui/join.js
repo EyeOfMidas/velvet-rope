@@ -79,9 +79,7 @@ export function mountJoin(
   const error = announced('p', 'alert', classes.error);
   const back = h('button', { type: 'button' }, text.back);
   const body = h('div', { className: classes.body });
-  container.replaceChildren(
-    h('section', { className: classes.root }, h('h2', {}, text.title), error, body, back),
-  );
+  container.replaceChildren(h('section', { className: classes.root }, h('h2', {}, text.title), error, body, back));
 
   // Everything that runs in the background while a code is showing.
   let stopWatching = () => {};
@@ -117,12 +115,7 @@ export function mountJoin(
       'form',
       {},
       h('p', {}, text.intro),
-      h(
-        'div',
-        { className: classes.field },
-        h('label', { htmlFor: 'passkey-label' }, text.labelField),
-        label,
-      ),
+      h('div', { className: classes.field }, h('label', { htmlFor: 'passkey-label' }, text.labelField), label),
       submit,
     );
     form.addEventListener('submit', async (event) => {

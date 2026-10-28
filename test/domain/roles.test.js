@@ -36,14 +36,9 @@ describe('defineRoles', () => {
   });
 
   it('refuses a matrix whose admin or linked role is missing', () => {
-    expect(() => defineRoles({ viewer: [] }, { admin: 'admin', linked: 'viewer' })).toThrow(
-      /admin/,
-    );
+    expect(() => defineRoles({ viewer: [] }, { admin: 'admin', linked: 'viewer' })).toThrow(/admin/);
     expect(() =>
-      defineRoles(
-        { admin: ['link', 'manageMembers', 'deleteGroup'] },
-        { admin: 'admin', linked: 'guest' },
-      ),
+      defineRoles({ admin: ['link', 'manageMembers', 'deleteGroup'] }, { admin: 'admin', linked: 'guest' }),
     ).toThrow(/guest/);
   });
 
@@ -88,8 +83,7 @@ describe('canManageMember', () => {
     return role ? { action, role } : { action };
   };
   const outcome = (result) => (result.ok ? 'ok' : result.reason);
-  const check = (actor, target, change, admins = 2) =>
-    outcome(canManageMember(actor, target, change, admins));
+  const check = (actor, target, change, admins = 2) => outcome(canManageMember(actor, target, change, admins));
 
   for (const [name, table] of Object.entries(TABLES)) {
     for (const [actorRole, row] of Object.entries(table)) {

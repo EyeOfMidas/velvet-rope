@@ -120,9 +120,13 @@ export default async function linkRequestRoutes(
     if (!result.ok) return refuse(reply, ...CLAIM_REFUSALS[result.reason]);
 
     const claimed = result.request;
-    db.prepare(
-      `UPDATE link_requests SET status = ?, group_id = ?, role = ?, linked_by = ? WHERE id = ?`,
-    ).run(claimed.status, claimed.group_id, claimed.role, claimed.linked_by, row.id);
+    db.prepare(`UPDATE link_requests SET status = ?, group_id = ?, role = ?, linked_by = ? WHERE id = ?`).run(
+      claimed.status,
+      claimed.group_id,
+      claimed.role,
+      claimed.linked_by,
+      row.id,
+    );
     publishStatus(tokenHash);
     return { label: row.label };
   });
