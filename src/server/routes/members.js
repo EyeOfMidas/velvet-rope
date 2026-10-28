@@ -10,7 +10,7 @@ const REFUSALS = {
   lastAdmin: [409, 'last_admin'],
 };
 
-function item(row, session) {
+function withCurrentFlag(row, session) {
   return { ...row, current: row.id === session.passkey.id };
 }
 
@@ -59,7 +59,7 @@ export default async function memberRoutes(app, { db, now, roles, events, sessio
           ORDER BY created_at, id`,
       )
       .all(session.group.id);
-    return rows.map((row) => item(row, session));
+    return rows.map((row) => withCurrentFlag(row, session));
   });
 
   app.patch('/members/:id', signedIn, async (request, reply) => {
@@ -87,7 +87,7 @@ export default async function memberRoutes(app, { db, now, roles, events, sessio
 
     const renamed = label !== target.label;
     const roleChanged = role !== target.role;
-    if (!renamed && !roleChanged) return item(target, session);
+    if (!renamed && !roleChanged) return withCurrentFlag(target, session);
 
     const at = now();
     const audit = (action, from, to) =>
@@ -111,7 +111,7 @@ export default async function memberRoutes(app, { db, now, roles, events, sessio
     })();
     if (roleChanged) events.publishTo(target.id, 'role-changed', { role });
     events.publish(groupId, 'members-changed', {});
-    return item(findLive(groupId, target.id), session);
+    return withCurrentFlag(findLive(groupId, target.id), session);
   });
 
   app.delete('/members/:id', signedIn, async (request, reply) => {

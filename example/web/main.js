@@ -41,10 +41,10 @@ const button = (text, onClick) => {
 let pendingToken = takeLinkFromLocation();
 let events = null;
 
-function welcome(message = '') {
+function showWelcome(message = '') {
   events?.close();
   const error = createElement('p', { className: 'error' });
-  const run = (fn) => async () => {
+  const showErrors = (fn) => async () => {
     error.textContent = '';
     try {
       await fn();
@@ -60,16 +60,16 @@ function welcome(message = '') {
       { className: 'row' },
       button(
         'Sign in',
-        run(async () => home(await client.signIn())),
+        showErrors(async () => showHome(await client.signIn())),
       ),
-      button('Create a group', createForm),
-      button('Join a group', () => mountJoin(root, { client, onJoined: home, onCancel: () => welcome() })),
+      button('Create a group', showCreateGroup),
+      button('Join a group', () => mountJoin(root, { client, onJoined: showHome, onCancel: () => showWelcome() })),
     ),
     error,
   );
 }
 
-function createForm() {
+function showCreateGroup() {
   const name = createElement('input', { id: 'group-name', required: true });
   const label = createElement('input', {
     id: 'label',
@@ -86,14 +86,14 @@ function createForm() {
       'div',
       { className: 'row' },
       createElement('button', { type: 'submit' }, 'Create passkey'),
-      button('Back', () => welcome()),
+      button('Back', () => showWelcome()),
     ),
     error,
   );
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     try {
-      home(await client.createGroup({ groupName: name.value, label: label.value }));
+      showHome(await client.createGroup({ groupName: name.value, label: label.value }));
     } catch (e) {
       error.textContent = e.message;
     }
@@ -102,12 +102,12 @@ function createForm() {
   name.focus();
 }
 
-async function home(me) {
+async function showHome(me) {
   const status = createElement('p', { role: 'status' });
   const notes = createElement('ul', { ariaLabel: 'Notes' });
   const members = createElement('section');
   const toolbar = createElement('div', { className: 'row' });
-  const say = (text) => (status.textContent = text);
+  const setStatus = (text) => (status.textContent = text);
 
   async function refresh() {
     const list = await api('GET', '/api/notes');
@@ -131,7 +131,7 @@ async function home(me) {
         button('Edit', () => {
           const input = createElement('input', { value: note.text, ariaLabel: 'Note text' });
           const save = button('Save', async () => {
-            await api('PUT', `/api/notes/${note.id}`, { text: input.value }).catch((e) => say(e.message));
+            await api('PUT', `/api/notes/${note.id}`, { text: input.value }).catch((e) => setStatus(e.message));
             refresh();
           });
           li.replaceChildren(input, save);
@@ -141,7 +141,7 @@ async function home(me) {
     }
     if (roles.can(me.passkey.role, 'delete')) {
       actions.append(
-        button('Delete', () => api('DELETE', `/api/notes/${note.id}`).then(refresh, (e) => say(e.message))),
+        button('Delete', () => api('DELETE', `/api/notes/${note.id}`).then(refresh, (e) => setStatus(e.message))),
       );
     }
     li.append(actions);
@@ -163,7 +163,7 @@ async function home(me) {
             ),
           );
           select.addEventListener('change', () =>
-            client.updateMember(member.id, { role: select.value }).then(refresh, (e) => say(e.message)),
+            client.updateMember(member.id, { role: select.value }).then(refresh, (e) => setStatus(e.message)),
           );
           return createElement('li', { className: 'row' }, createElement('span', {}, member.label), select);
         }),
@@ -173,12 +173,12 @@ async function home(me) {
 
   function render() {
     const { passkey, group } = me;
-    toolbar.replaceChildren(button('Sign out', async () => (await client.signOut(), welcome())));
+    toolbar.replaceChildren(button('Sign out', async () => (await client.signOut(), showWelcome())));
     if (roles.can(passkey.role, 'link')) {
       mountScanButton(toolbar, {
         client,
-        onLinked: ({ label }) => say(`Linked ${label}. They start as a viewer.`),
-        onError: say,
+        onLinked: ({ label }) => setStatus(`Linked ${label}. They start as a viewer.`),
+        onError: setStatus,
       });
     }
     const add = createElement('form', { className: 'row' });
@@ -189,7 +189,7 @@ async function home(me) {
         event.preventDefault();
         await api('POST', '/api/notes', { text: text.value }).then(
           () => (text.value = ''),
-          (e) => say(e.message),
+          (e) => setStatus(e.message),
         );
         refresh();
       });
@@ -215,8 +215,8 @@ async function home(me) {
       me.passkey.role = role;
       render();
     },
-    onRevoked: () => welcome('This device was removed from the group.'),
-    onGroupDeleted: ({ name }) => welcome(`${name} was deleted.`),
+    onRevoked: () => showWelcome('This device was removed from the group.'),
+    onGroupDeleted: ({ name }) => showWelcome(`${name} was deleted.`),
   });
   render();
 
@@ -224,12 +224,12 @@ async function home(me) {
     const token = pendingToken;
     pendingToken = null;
     client.claimLink(token).then(
-      ({ label }) => say(`Linked ${label}.`),
-      (e) => say(e.message),
+      ({ label }) => setStatus(`Linked ${label}.`),
+      (e) => setStatus(e.message),
     );
   }
 }
 
 const me = await client.getMe();
-if (me) home(me);
-else welcome();
+if (me) showHome(me);
+else showWelcome();

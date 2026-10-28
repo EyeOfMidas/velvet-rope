@@ -33,7 +33,7 @@ export function buildApp({ db, origin = 'http://localhost:5174', now = Date.now 
   app.register(async (notes) => {
     const find = (req) =>
       db.prepare('SELECT * FROM notes WHERE id = ? AND group_id = ?').get(req.params.id, req.session.group.id);
-    const cleanText = (value) => (typeof value === 'string' ? value.trim().slice(0, 500) : '');
+    const trimNoteText = (value) => (typeof value === 'string' ? value.trim().slice(0, 500) : '');
 
     // View: anyone whose role can read. Every query is scoped to the session's group.
     notes.get('/api/notes', { onRequest: app.requireCapability('read') }, async (req) =>
@@ -47,7 +47,7 @@ export function buildApp({ db, origin = 'http://localhost:5174', now = Date.now 
     );
 
     notes.post('/api/notes', { onRequest: app.requireCapability('write') }, async (req, reply) => {
-      const text = cleanText(req.body?.text);
+      const text = trimNoteText(req.body?.text);
       if (!text) return reply.code(400).send({ error: 'text_required', message: 'Write something' });
       const note = { id: randomUUID(), text };
       db.prepare('INSERT INTO notes (id, group_id, text, created_by, created_at) VALUES (?, ?, ?, ?, ?)').run(
@@ -68,7 +68,7 @@ export function buildApp({ db, origin = 'http://localhost:5174', now = Date.now 
       if (!canEditNote(req.session, note)) {
         return reply.code(403).send({ error: 'forbidden', message: 'You can edit only your notes' });
       }
-      const text = cleanText(req.body?.text);
+      const text = trimNoteText(req.body?.text);
       if (!text) return reply.code(400).send({ error: 'text_required', message: 'Write something' });
       db.prepare('UPDATE notes SET text = ? WHERE id = ?').run(text, note.id);
       app.velvetRope.events.publish(req.session.group.id, 'notes-changed', {});

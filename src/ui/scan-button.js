@@ -3,7 +3,7 @@
 import { createElement } from './create-element.js';
 
 // The scanner (and jsQR) only load once someone scans.
-const loadScanner = (options) => import('./scanner.js').then((m) => m.openScanner(options));
+const openScannerLazily = (options) => import('./scanner.js').then((m) => m.openScanner(options));
 
 export const SCAN_BUTTON_TEXT = Object.freeze({
   button: 'Scan to link a device',
@@ -30,7 +30,7 @@ export function createScanButton({
   text: textOverrides = {},
   className,
   scanner = {},
-  openScanner = loadScanner,
+  openScanner = openScannerLazily,
 }) {
   const text = { ...SCAN_BUTTON_TEXT, ...textOverrides };
   const button = createElement('button', { type: 'button', ...(className ? { className } : {}) }, text.button);

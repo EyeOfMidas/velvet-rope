@@ -5,7 +5,7 @@ import { labelFromUserAgent } from '../client/device-label.js';
 import { linkUrl } from '../client/link-url.js';
 import { renderQr, renderQrSvg as defaultRenderQrSvg } from '../client/qr.js';
 import { watchJoin } from '../client/watch-join.js';
-import { announced, createElement } from './create-element.js';
+import { createLiveRegion, createElement } from './create-element.js';
 
 export const JOIN_TEXT = Object.freeze({
   title: 'Join a group',
@@ -76,7 +76,7 @@ export function mountJoin(
     maxLength: 60,
     value: labelFromUserAgent(userAgent),
   });
-  const error = announced('p', 'alert', classes.error);
+  const error = createLiveRegion('p', 'alert', classes.error);
   const back = createElement('button', { type: 'button' }, text.back);
   const body = createElement('div', { className: classes.body });
   container.replaceChildren(
@@ -199,7 +199,7 @@ export function mountJoin(
 
   function onStatus(data) {
     if (phase !== 'waiting') return;
-    if (data.status === 'claimed') createPasskey();
+    if (data.status === 'claimed') completeJoin();
     else if (data.status === 'expired') showExpired();
   }
 
@@ -215,7 +215,7 @@ export function mountJoin(
     again.focus();
   }
 
-  async function createPasskey() {
+  async function completeJoin() {
     stopBackground();
     phase = 'creating';
     error.hidden = true;
@@ -233,7 +233,7 @@ export function mountJoin(
       if ([404, 409, 410].includes(e?.status)) return showExpired();
       // Firefox may refuse create() without a fresh user gesture; a button press provides one.
       const retry = createElement('button', { type: 'button', className: classes.primary }, text.createPasskey);
-      retry.addEventListener('click', createPasskey);
+      retry.addEventListener('click', completeJoin);
       status.textContent = text.approvedShort;
       showError(describeError(e));
       body.append(retry);

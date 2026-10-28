@@ -13,8 +13,8 @@ export function createInvite(database, now) {
   return code;
 }
 
-/** Returns the code's hash if it can make a store now, else null. Doesn't spend it. */
-export function usableInvite(db, code, now) {
+/** Returns the code's hash if it can make a group now, else null. Doesn't spend it. */
+export function hashIfUsable(db, code, now) {
   if (typeof code !== 'string' || !code) return null;
   const codeHash = sha256Hex(code);
   const row = db.prepare('SELECT * FROM invites WHERE code_hash = ?').get(codeHash);

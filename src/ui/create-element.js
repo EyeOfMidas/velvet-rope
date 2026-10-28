@@ -9,7 +9,7 @@ export function createElement(tag, props = {}, ...children) {
 }
 
 /** An element screen readers announce: role=alert for errors, role=status for progress. */
-export function announced(tag, role, className) {
+export function createLiveRegion(tag, role, className) {
   const el = createElement(tag, { className, hidden: role === 'alert' });
   el.setAttribute('role', role);
   return el;

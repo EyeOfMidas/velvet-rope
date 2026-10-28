@@ -4,7 +4,7 @@
 import { randomUUID } from 'node:crypto';
 import { MAX_GROUP_NAME, MAX_LABEL, cleanText } from '../../domain/text.js';
 import { challengeOf, saveChallenge, takeChallenge } from '../challenges.js';
-import { spendInvite, usableInvite } from '../invites.js';
+import { spendInvite, hashIfUsable } from '../invites.js';
 import { insertPasskey, registrationOptions, verifyRegistration } from '../registration.js';
 
 const PURPOSE = 'create-group';
@@ -23,7 +23,7 @@ export default async function groupRoutes(
     if (groupCreation === 'invite') {
       const code = request.body?.invite;
       if (!code) return refuse(reply, 403, 'invite_required');
-      inviteHash = usableInvite(db, code, now());
+      inviteHash = hashIfUsable(db, code, now());
       if (!inviteHash) return refuse(reply, 403, 'invite_invalid');
     }
     const options = await registrationOptions(rp, { name: `${groupName} · ${label}` });
