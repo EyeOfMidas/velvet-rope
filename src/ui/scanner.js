@@ -2,7 +2,7 @@
 // join link on this origin it sees is handed to onToken; the camera stops whenever it closes.
 import { startScanner } from '../client/camera.js';
 import { parseLinkUrl } from '../client/link-url.js';
-import { h } from './h.js';
+import { createElement } from './create-element.js';
 
 export const SCANNER_TEXT = Object.freeze({
   label: 'Scan a join QR code',
@@ -38,20 +38,20 @@ export function openScanner({
 }) {
   const text = { ...SCANNER_TEXT, ...textOverrides };
   const classes = { ...SCANNER_CLASSES, ...classOverrides };
-  const video = h('video', { muted: true, playsInline: true, autoplay: true });
+  const video = createElement('video', { muted: true, playsInline: true, autoplay: true });
   video.setAttribute('playsinline', '');
-  const hint = h('p', { className: classes.hint }, text.hint);
-  const error = h('p', { className: classes.error, hidden: true });
+  const hint = createElement('p', { className: classes.hint }, text.hint);
+  const error = createElement('p', { className: classes.error, hidden: true });
   error.setAttribute('role', 'alert');
-  const torch = h('button', { type: 'button', hidden: true }, text.torchOn);
-  const cancel = h('button', { type: 'button' }, text.cancel);
-  const dialog = h(
+  const torch = createElement('button', { type: 'button', hidden: true }, text.torchOn);
+  const cancel = createElement('button', { type: 'button' }, text.cancel);
+  const dialog = createElement(
     'div',
     { className: classes.root },
-    h('div', { className: classes.view }, video),
+    createElement('div', { className: classes.view }, video),
     hint,
     error,
-    h('div', { className: classes.actions }, torch, cancel),
+    createElement('div', { className: classes.actions }, torch, cancel),
   );
   dialog.setAttribute('role', 'dialog');
   dialog.setAttribute('aria-modal', 'true');

@@ -5,7 +5,7 @@ import { labelFromUserAgent } from '../client/device-label.js';
 import { linkUrl } from '../client/link-url.js';
 import { renderQr, renderQrSvg as defaultRenderQrSvg } from '../client/qr.js';
 import { watchJoin } from '../client/watch-join.js';
-import { announced, h } from './h.js';
+import { announced, createElement } from './create-element.js';
 
 export const JOIN_TEXT = Object.freeze({
   title: 'Join a group',
@@ -69,7 +69,7 @@ export function mountJoin(
 ) {
   const text = { ...JOIN_TEXT, ...textOverrides };
   const classes = { ...JOIN_CLASSES, ...classOverrides };
-  const label = h('input', {
+  const label = createElement('input', {
     id: 'passkey-label',
     name: 'label',
     required: true,
@@ -77,9 +77,11 @@ export function mountJoin(
     value: labelFromUserAgent(userAgent),
   });
   const error = announced('p', 'alert', classes.error);
-  const back = h('button', { type: 'button' }, text.back);
-  const body = h('div', { className: classes.body });
-  container.replaceChildren(h('section', { className: classes.root }, h('h2', {}, text.title), error, body, back));
+  const back = createElement('button', { type: 'button' }, text.back);
+  const body = createElement('div', { className: classes.body });
+  container.replaceChildren(
+    createElement('section', { className: classes.root }, createElement('h2', {}, text.title), error, body, back),
+  );
 
   // Everything that runs in the background while a code is showing.
   let stopWatching = () => {};
@@ -110,12 +112,17 @@ export function mountJoin(
 
   function showForm() {
     phase = 'form';
-    const submit = h('button', { type: 'submit', className: classes.primary }, text.showCode);
-    const form = h(
+    const submit = createElement('button', { type: 'submit', className: classes.primary }, text.showCode);
+    const form = createElement(
       'form',
       {},
-      h('p', {}, text.intro),
-      h('div', { className: classes.field }, h('label', { htmlFor: 'passkey-label' }, text.labelField), label),
+      createElement('p', {}, text.intro),
+      createElement(
+        'div',
+        { className: classes.field },
+        createElement('label', { htmlFor: 'passkey-label' }, text.labelField),
+        label,
+      ),
       submit,
     );
     form.addEventListener('submit', async (event) => {
@@ -149,20 +156,20 @@ export function mountJoin(
     const expires = new Date(expiresAt).getTime();
     qr.setAttribute('class', classes.qr);
     qr.dataset.url = url;
-    const countdown = h('p', { className: classes.countdown });
+    const countdown = createElement('p', { className: classes.countdown });
     const tick = () => {
       const left = expires - Date.now();
       if (left <= 0) return showExpired();
       countdown.textContent = `${text.expiresIn} ${formatRemaining(left)}`;
     };
-    const link = h('input', {
+    const link = createElement('input', {
       id: 'link-url',
       readOnly: true,
       value: url,
       dataset: { testid: 'link-url' },
     });
     link.addEventListener('focus', () => link.select());
-    const copy = h('button', { type: 'button' }, text.copy);
+    const copy = createElement('button', { type: 'button' }, text.copy);
     copy.addEventListener('click', async () => {
       try {
         await navigator.clipboard.writeText(url);
@@ -174,16 +181,16 @@ export function mountJoin(
     copy.hidden = !globalThis.navigator?.clipboard?.writeText;
 
     body.replaceChildren(
-      h('p', {}, text.scanThis),
+      createElement('p', {}, text.scanThis),
       qr,
       countdown,
-      h(
+      createElement(
         'div',
         { className: classes.field },
-        h('label', { htmlFor: 'link-url' }, text.linkField),
-        h('div', { className: classes.copyRow }, link, copy),
+        createElement('label', { htmlFor: 'link-url' }, text.linkField),
+        createElement('div', { className: classes.copyRow }, link, copy),
       ),
-      h('p', { className: classes.hint }, text.waiting),
+      createElement('p', { className: classes.hint }, text.waiting),
     );
     tick();
     tickTimer = setInterval(tick, 1000);
@@ -199,12 +206,12 @@ export function mountJoin(
   function showExpired() {
     stopBackground();
     phase = 'expired';
-    const again = h('button', { type: 'button', className: classes.primary }, text.newCode);
+    const again = createElement('button', { type: 'button', className: classes.primary }, text.newCode);
     again.addEventListener('click', async () => {
       again.disabled = true;
       if (!(await requestCode())) again.disabled = false;
     });
-    body.replaceChildren(h('p', { className: classes.status }, text.expired), again);
+    body.replaceChildren(createElement('p', { className: classes.status }, text.expired), again);
     again.focus();
   }
 
@@ -212,7 +219,7 @@ export function mountJoin(
     stopBackground();
     phase = 'creating';
     error.hidden = true;
-    const status = h('p', { className: classes.status }, text.approved);
+    const status = createElement('p', { className: classes.status }, text.approved);
     status.setAttribute('role', 'status');
     body.replaceChildren(status);
     try {
@@ -225,7 +232,7 @@ export function mountJoin(
       // 409: the request is no longer claimed (expired or used); 404: it was pruned.
       if ([404, 409, 410].includes(e?.status)) return showExpired();
       // Firefox may refuse create() without a fresh user gesture; a button press provides one.
-      const retry = h('button', { type: 'button', className: classes.primary }, text.createPasskey);
+      const retry = createElement('button', { type: 'button', className: classes.primary }, text.createPasskey);
       retry.addEventListener('click', createPasskey);
       status.textContent = text.approvedShort;
       showError(describeError(e));

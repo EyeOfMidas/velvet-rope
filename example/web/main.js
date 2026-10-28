@@ -24,7 +24,7 @@ const api = (method, path, body) =>
     return data;
   });
 
-function h(tag, { dataset = {}, ...props } = {}, ...children) {
+function createElement(tag, { dataset = {}, ...props } = {}, ...children) {
   const el = Object.assign(document.createElement(tag), props);
   Object.assign(el.dataset, dataset);
   el.append(...children);
@@ -32,7 +32,7 @@ function h(tag, { dataset = {}, ...props } = {}, ...children) {
 }
 
 const button = (text, onClick) => {
-  const b = h('button', { type: 'button' }, text);
+  const b = createElement('button', { type: 'button' }, text);
   b.addEventListener('click', onClick);
   return b;
 };
@@ -43,7 +43,7 @@ let events = null;
 
 function welcome(message = '') {
   events?.close();
-  const error = h('p', { className: 'error' });
+  const error = createElement('p', { className: 'error' });
   const run = (fn) => async () => {
     error.textContent = '';
     try {
@@ -53,9 +53,9 @@ function welcome(message = '') {
     }
   };
   root.replaceChildren(
-    message ? h('p', {}, message) : '',
-    pendingToken ? h('p', {}, 'Sign in first, then the other device will be linked.') : '',
-    h(
+    message ? createElement('p', {}, message) : '',
+    pendingToken ? createElement('p', {}, 'Sign in first, then the other device will be linked.') : '',
+    createElement(
       'div',
       { className: 'row' },
       button(
@@ -70,22 +70,22 @@ function welcome(message = '') {
 }
 
 function createForm() {
-  const name = h('input', { id: 'group-name', required: true });
-  const label = h('input', {
+  const name = createElement('input', { id: 'group-name', required: true });
+  const label = createElement('input', {
     id: 'label',
     required: true,
     value: labelFromUserAgent(navigator.userAgent),
   });
-  const error = h('p', { className: 'error' });
-  const form = h(
+  const error = createElement('p', { className: 'error' });
+  const form = createElement(
     'form',
     {},
-    h('p', {}, h('label', { htmlFor: 'group-name' }, 'Group name '), name),
-    h('p', {}, h('label', { htmlFor: 'label' }, 'Name this passkey '), label),
-    h(
+    createElement('p', {}, createElement('label', { htmlFor: 'group-name' }, 'Group name '), name),
+    createElement('p', {}, createElement('label', { htmlFor: 'label' }, 'Name this passkey '), label),
+    createElement(
       'div',
       { className: 'row' },
-      h('button', { type: 'submit' }, 'Create passkey'),
+      createElement('button', { type: 'submit' }, 'Create passkey'),
       button('Back', () => welcome()),
     ),
     error,
@@ -98,15 +98,15 @@ function createForm() {
       error.textContent = e.message;
     }
   });
-  root.replaceChildren(h('h2', {}, 'Create a group'), form);
+  root.replaceChildren(createElement('h2', {}, 'Create a group'), form);
   name.focus();
 }
 
 async function home(me) {
-  const status = h('p', { role: 'status' });
-  const notes = h('ul', { ariaLabel: 'Notes' });
-  const members = h('section');
-  const toolbar = h('div', { className: 'row' });
+  const status = createElement('p', { role: 'status' });
+  const notes = createElement('ul', { ariaLabel: 'Notes' });
+  const members = createElement('section');
+  const toolbar = createElement('div', { className: 'row' });
   const say = (text) => (status.textContent = text);
 
   async function refresh() {
@@ -117,19 +117,19 @@ async function home(me) {
   }
 
   function noteItem(note) {
-    const li = h(
+    const li = createElement(
       'li',
       {},
-      h('span', {}, note.text),
+      createElement('span', {}, note.text),
       ' ',
-      h('span', { className: 'muted' }, `— ${note.author ?? 'gone'}`),
+      createElement('span', { className: 'muted' }, `— ${note.author ?? 'gone'}`),
     );
-    const actions = h('div', { className: 'row' });
+    const actions = createElement('div', { className: 'row' });
     // Hiding a control only spares people a button that wouldn't work; the server decides.
     if (canEditNote(me, note)) {
       actions.append(
         button('Edit', () => {
-          const input = h('input', { value: note.text, ariaLabel: 'Note text' });
+          const input = createElement('input', { value: note.text, ariaLabel: 'Note text' });
           const save = button('Save', async () => {
             await api('PUT', `/api/notes/${note.id}`, { text: input.value }).catch((e) => say(e.message));
             refresh();
@@ -151,19 +151,21 @@ async function home(me) {
   async function memberList() {
     const list = await client.listMembers();
     return [
-      h('h2', {}, 'Members'),
-      h(
+      createElement('h2', {}, 'Members'),
+      createElement(
         'ul',
         {},
         ...list.map((member) => {
-          const select = h('select', { ariaLabel: `Role for ${member.label}` });
+          const select = createElement('select', { ariaLabel: `Role for ${member.label}` });
           select.append(
-            ...roles.names.map((role) => h('option', { value: role, selected: role === member.role }, role)),
+            ...roles.names.map((role) =>
+              createElement('option', { value: role, selected: role === member.role }, role),
+            ),
           );
           select.addEventListener('change', () =>
             client.updateMember(member.id, { role: select.value }).then(refresh, (e) => say(e.message)),
           );
-          return h('li', { className: 'row' }, h('span', {}, member.label), select);
+          return createElement('li', { className: 'row' }, createElement('span', {}, member.label), select);
         }),
       ),
     ];
@@ -179,10 +181,10 @@ async function home(me) {
         onError: say,
       });
     }
-    const add = h('form', { className: 'row' });
+    const add = createElement('form', { className: 'row' });
     if (roles.can(passkey.role, 'write')) {
-      const text = h('input', { ariaLabel: 'New note', placeholder: 'New note' });
-      add.append(text, h('button', { type: 'submit' }, 'Add'));
+      const text = createElement('input', { ariaLabel: 'New note', placeholder: 'New note' });
+      add.append(text, createElement('button', { type: 'submit' }, 'Add'));
       add.addEventListener('submit', async (event) => {
         event.preventDefault();
         await api('POST', '/api/notes', { text: text.value }).then(
@@ -193,10 +195,10 @@ async function home(me) {
       });
     }
     root.replaceChildren(
-      h('p', { dataset: { testid: 'signed-in' } }, `${passkey.label} in ${group.name} · ${passkey.role}`),
+      createElement('p', { dataset: { testid: 'signed-in' } }, `${passkey.label} in ${group.name} · ${passkey.role}`),
       toolbar,
       status,
-      h('h2', {}, 'Notes'),
+      createElement('h2', {}, 'Notes'),
       add,
       notes,
       members,

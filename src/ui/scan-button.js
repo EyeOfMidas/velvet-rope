@@ -1,6 +1,6 @@
 // A "Scan to link a device" button for a signed-in device: opens the scanner and claims the code
 // it reads. The scan is the approval, so there's no prompt. Show it only to roles that can link.
-import { h } from './h.js';
+import { createElement } from './create-element.js';
 
 // The scanner (and jsQR) only load once someone scans.
 const loadScanner = (options) => import('./scanner.js').then((m) => m.openScanner(options));
@@ -33,7 +33,7 @@ export function createScanButton({
   openScanner = loadScanner,
 }) {
   const text = { ...SCAN_BUTTON_TEXT, ...textOverrides };
-  const button = h('button', { type: 'button', ...(className ? { className } : {}) }, text.button);
+  const button = createElement('button', { type: 'button', ...(className ? { className } : {}) }, text.button);
 
   async function claim(token) {
     try {
