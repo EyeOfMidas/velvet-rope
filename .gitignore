@@ -1,0 +1,4 @@
+node_modules/
+example/data/
+coverage/
+*.tgz

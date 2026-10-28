@@ -1,0 +1,94 @@
+/* Plain defaults for velvet-rope's drop-in components. Optional: import it, override it, or pass
+   your own class names through `classes`. Colours follow the page via currentColor. */
+
+.vr-join {
+  display: grid;
+  gap: 1rem;
+  max-width: 28rem;
+}
+
+.vr-join-body,
+.vr-join-body form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.vr-field {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.vr-join button,
+.vr-scanner button,
+.vr-join input {
+  min-height: 44px;
+  font: inherit;
+}
+
+.vr-primary {
+  font-weight: 600;
+}
+
+.vr-join-qr {
+  width: min(100%, 18rem);
+  height: auto;
+  justify-self: center;
+}
+
+.vr-countdown,
+.vr-join-status {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.vr-copy-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.vr-copy-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.vr-hint {
+  opacity: 0.75;
+}
+
+.vr-error {
+  color: #b3261e;
+}
+
+/* Scanner: full-screen camera view with the controls below it. */
+.vr-scanner {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: #000;
+  color: #fff;
+}
+
+.vr-scanner-view {
+  flex: 1;
+  min-height: 0;
+}
+
+.vr-scanner video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.vr-scanner .vr-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.vr-scanner .vr-error {
+  color: #ffb4ab;
+}

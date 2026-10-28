@@ -1,0 +1,4 @@
+node_modules/
+example/data/
+package-lock.json
+*.md

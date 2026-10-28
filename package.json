@@ -1,0 +1,81 @@
+{
+  "name": "velvet-rope",
+  "version": "0.1.0",
+  "description": "Passkey sign-in and in-person QR device linking: a new device gets in when someone inside scans its code.",
+  "author": "Justin Gilman",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    "./domain": "./src/domain/index.js",
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js",
+    "./ui": "./src/ui/index.js",
+    "./ui/style.css": "./src/ui/style.css",
+    "./testing": "./src/testing/index.js",
+    "./testing/playwright": "./src/testing/playwright.js"
+  },
+  "files": [
+    "src/"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "check": "npm run lint && npm test",
+    "example": "node example/server.js",
+    "example:web": "vite --config example/vite.config.js"
+  },
+  "keywords": [
+    "passkey",
+    "webauthn",
+    "qr",
+    "device-linking",
+    "fastify"
+  ],
+  "peerDependencies": {
+    "@fastify/rate-limit": ">=10",
+    "@simplewebauthn/server": "^14.0.0",
+    "fastify": "^5.0.0",
+    "@simplewebauthn/browser": "^14.0.0",
+    "qrcode": "^1.5.0",
+    "jsqr": "^1.4.0"
+  },
+  "peerDependenciesMeta": {
+    "@fastify/rate-limit": {
+      "optional": true
+    },
+    "@simplewebauthn/server": {
+      "optional": true
+    },
+    "fastify": {
+      "optional": true
+    },
+    "@simplewebauthn/browser": {
+      "optional": true
+    },
+    "qrcode": {
+      "optional": true
+    },
+    "jsqr": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@fastify/rate-limit": "^11.2.1",
+    "@simplewebauthn/browser": "^14.0.0",
+    "@simplewebauthn/server": "^14.0.3",
+    "better-sqlite3": "^13.0.3",
+    "eslint": "^10.13.0",
+    "fastify": "^5.12.7",
+    "globals": "^17.13.0",
+    "happy-dom": "^21.0.4",
+    "jsqr": "^1.4.0",
+    "prettier": "^3.9.10",
+    "qrcode": "^1.5.4",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
+  }
+}
