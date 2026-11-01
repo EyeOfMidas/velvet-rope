@@ -3,6 +3,13 @@
   "version": "0.1.0",
   "description": "Passkey sign-in and in-person QR device linking: a new device gets in when someone inside scans its code.",
   "author": "Justin Gilman",
+  "license": "GPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EyeOfMidas/velvet-rope.git"
+  },
+  "homepage": "https://github.com/EyeOfMidas/velvet-rope#readme",
+  "bugs": "https://github.com/EyeOfMidas/velvet-rope/issues",
   "type": "module",
   "engines": {
     "node": ">=22"
