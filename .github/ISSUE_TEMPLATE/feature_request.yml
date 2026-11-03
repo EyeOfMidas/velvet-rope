@@ -1,0 +1,45 @@
+name: Feature request
+description: Suggest something velvet-rope should do.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Velvet-rope is meant to stay small. A good request explains the problem first. The
+        maintainer may suggest solving it in your app rather than in the library.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you'd like
+      description: How you imagine it working, from an app's point of view (options, routes, client calls).
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
+      description: Including working around it in your own app.
+  - type: checkboxes
+    id: impact
+    attributes:
+      label: Impact
+      description: Tick what this would need, as far as you can tell.
+      options:
+        - label: A change to the database schema
+        - label: A breaking change for existing apps
+        - label: A change to how sign-in or joining is secured
+  - type: dropdown
+    id: contribute
+    attributes:
+      label: Would you like to build it?
+      options:
+        - Yes, with some guidance
+        - Maybe
+        - No

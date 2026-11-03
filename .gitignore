@@ -2,3 +2,6 @@ node_modules/
 example/data/
 coverage/
 *.tgz
+CLAUDE.md
+.claude/
+plan/

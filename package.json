@@ -24,7 +24,8 @@
     "./testing/playwright": "./src/testing/playwright.js"
   },
   "files": [
-    "src/"
+    "src/",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "test": "vitest run",

@@ -1,0 +1,63 @@
+name: Bug report
+description: Something in velvet-rope doesn't work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. If it's a security problem, please don't file it here: use
+        **Report a vulnerability** on the Security tab instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The smallest setup that shows the problem. A failing test or a change to the example app is ideal.
+      placeholder: |
+        1. Register the plugin with ...
+        2. Join from a second device ...
+        3. See ...
+    validations:
+      required: true
+  - type: textarea
+    id: errors
+    attributes:
+      label: Error output
+      description: Any `{ error, message }` reply, server log or browser console output. Remove cookies, tokens and other secrets first.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: velvet-rope version
+      placeholder: 0.2.0
+    validations:
+      required: true
+  - type: input
+    id: node
+    attributes:
+      label: Node version
+      placeholder: '22.12.0'
+    validations:
+      required: true
+  - type: dropdown
+    id: driver
+    attributes:
+      label: SQLite driver
+      options:
+        - better-sqlite3
+        - node:sqlite
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device
+      description: For problems with passkeys, scanning or the join screen.
+      placeholder: Safari 19 on iPhone, Chrome 140 on Windows 11
