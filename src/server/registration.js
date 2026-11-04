@@ -1,5 +1,6 @@
-// Registering a new passkey, shared by creating a group and joining one by QR. Each passkey gets
-// a fresh random WebAuthn user handle, never reused, so every device is its own account.
+// Registering a new member and their passkey device, shared by creating a group and joining one by
+// QR. Each passkey gets a fresh random WebAuthn user handle, never reused, so every device is its
+// own WebAuthn account.
 import { randomBytes, randomUUID } from 'node:crypto';
 import { generateRegistrationOptions, verifyRegistrationResponse } from '@simplewebauthn/server';
 
@@ -42,24 +43,48 @@ export async function verifyRegistration(rp, response, challenge) {
   }
 }
 
-/** Inserts the passkey and its credential; call inside a transaction. Returns { id, label, role }. */
-export function insertPasskey(db, { groupId, label, role, userHandle, registrationInfo, now }) {
+/** Inserts a member (a person); call inside a transaction. Returns { id, name, role }. */
+export function insertMember(db, { id = randomUUID(), groupId, name, role, now }) {
+  const member = { id, name, role };
+  db.prepare('INSERT INTO members (id, group_id, name, role, created_at) VALUES (?, ?, ?, ?, ?)').run(
+    member.id,
+    groupId,
+    name,
+    role,
+    now,
+  );
+  return member;
+}
+
+/**
+ * Inserts a device of the member, and its credential when a passkey was registered; call inside a
+ * transaction. Returns { id, label, kind }.
+ */
+export function insertDevice(
+  db,
+  { id = randomUUID(), memberId, label, kind = 'passkey', userHandle = null, registrationInfo, now },
+) {
+  const device = { id, label, kind };
+  db.prepare(
+    `INSERT INTO devices (id, member_id, group_id, label, kind, user_handle, created_at, last_used_at)
+     SELECT ?, id, group_id, ?, ?, ?, ?, ? FROM members WHERE id = ?`,
+  ).run(device.id, label, kind, userHandle, now, now, memberId);
+  if (registrationInfo) insertCredential(db, { deviceId: device.id, registrationInfo });
+  return device;
+}
+
+/** Inserts the credential a verified registration made, for a device; call inside a transaction. */
+export function insertCredential(db, { deviceId, registrationInfo }) {
   const { credential, credentialBackedUp } = registrationInfo;
-  const passkey = { id: randomUUID(), label, role };
   db.prepare(
-    `INSERT INTO passkeys (id, group_id, label, role, user_handle, created_at, last_used_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-  ).run(passkey.id, groupId, label, role, userHandle, now, now);
-  db.prepare(
-    `INSERT INTO credentials (credential_id, passkey_id, public_key, sign_count, transports, backed_up)
+    `INSERT INTO credentials (credential_id, device_id, public_key, sign_count, transports, backed_up)
      VALUES (?, ?, ?, ?, ?, ?)`,
   ).run(
     credential.id,
-    passkey.id,
+    deviceId,
     Buffer.from(credential.publicKey),
     credential.counter,
     JSON.stringify(credential.transports ?? []),
     credentialBackedUp ? 1 : 0,
   );
-  return passkey;
 }

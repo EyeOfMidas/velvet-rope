@@ -2,7 +2,8 @@ import js from '@eslint/js';
 import globals from 'globals';
 
 export default [
-  { ignores: ['**/node_modules/', 'example/data/'] },
+  // Flat config doesn't read .gitignore, so the gitignored local folders are listed here too.
+  { ignores: ['**/node_modules/', 'example/data/', 'coverage/', '.claude/', 'plan/'] },
   js.configs.recommended,
   {
     files: [

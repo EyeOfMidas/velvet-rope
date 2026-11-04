@@ -6,9 +6,12 @@ import {
   labelFromUserAgent,
   takeLinkFromLocation,
 } from '../../src/client/index.js';
-import { mountJoin, mountScanButton } from '../../src/ui/index.js';
+import { JOIN_TEXT, mountJoin, mountScanButton } from '../../src/ui/index.js';
 import '../../src/ui/style.css';
 import { canEditNote, roles } from '../roles.js';
+
+// The example says "device" because a device can hold a passkey or, with KEYS=1, a device key.
+const JOIN_OVERRIDES = { labelField: 'Name this device' };
 
 const root = document.querySelector('#app');
 const client = createClient({ csrfHeader: 'X-Notes' });
@@ -63,7 +66,16 @@ function showWelcome(message = '') {
         showErrors(async () => showHome(await client.signIn())),
       ),
       button('Create a group', showCreateGroup),
-      button('Join a group', () => mountJoin(root, { client, onJoined: showHome, onCancel: () => showWelcome() })),
+      button('Join a group', () =>
+        mountJoin(root, {
+          client,
+          askName: true,
+          draftKey: 'example-join',
+          text: { ...JOIN_TEXT, ...JOIN_OVERRIDES },
+          onJoined: showHome,
+          onCancel: () => showWelcome(),
+        }),
+      ),
     ),
     error,
   );
@@ -77,11 +89,13 @@ function showCreateGroup() {
     value: labelFromUserAgent(navigator.userAgent),
   });
   const error = createElement('p', { className: 'error' });
+  // Offered only after the passkey fails; the server refuses unless it runs with KEYS=1.
+  const keyOption = createElement('div', { className: 'row' });
   const form = createElement(
     'form',
     {},
     createElement('p', {}, createElement('label', { htmlFor: 'group-name' }, 'Group name '), name),
-    createElement('p', {}, createElement('label', { htmlFor: 'label' }, 'Name this passkey '), label),
+    createElement('p', {}, createElement('label', { htmlFor: 'label' }, 'Name this device '), label),
     createElement(
       'div',
       { className: 'row' },
@@ -89,6 +103,7 @@ function showCreateGroup() {
       button('Back', () => showWelcome()),
     ),
     error,
+    keyOption,
   );
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -96,6 +111,15 @@ function showCreateGroup() {
       showHome(await client.createGroup({ groupName: name.value, label: label.value }));
     } catch (e) {
       error.textContent = e.message;
+      keyOption.replaceChildren(
+        button('Use a device key instead', async () => {
+          try {
+            showHome(await client.createGroupWithKey({ groupName: name.value, label: label.value }));
+          } catch (err) {
+            error.textContent = err.message;
+          }
+        }),
+      );
     }
   });
   root.replaceChildren(createElement('h2', {}, 'Create a group'), form);
@@ -112,8 +136,7 @@ async function showHome(me) {
   async function refresh() {
     const list = await api('GET', '/api/notes');
     notes.replaceChildren(...list.map((note) => noteItem(note)));
-    if (roles.can(me.passkey.role, 'manageMembers')) members.replaceChildren(...(await memberList()));
-    else members.replaceChildren();
+    members.replaceChildren(...(await memberList()));
   }
 
   function noteItem(note) {
@@ -139,7 +162,7 @@ async function showHome(me) {
         }),
       );
     }
-    if (roles.can(me.passkey.role, 'delete')) {
+    if (roles.can(me.member.role, 'delete')) {
       actions.append(
         button('Delete', () => api('DELETE', `/api/notes/${note.id}`).then(refresh, (e) => setStatus(e.message))),
       );
@@ -156,25 +179,78 @@ async function showHome(me) {
         'ul',
         {},
         ...list.map((member) => {
-          const select = createElement('select', { ariaLabel: `Role for ${member.label}` });
-          select.append(
-            ...roles.names.map((role) =>
-              createElement('option', { value: role, selected: role === member.role }, role),
-            ),
+          const isAdmin = roles.can(me.member.role, 'manageMembers');
+          const head = createElement('div', { className: 'row' }, createElement('span', {}, member.name));
+          if (isAdmin) {
+            const select = createElement('select', { ariaLabel: `Role for ${member.name}` });
+            select.append(
+              ...roles.names.map((role) =>
+                createElement('option', { value: role, selected: role === member.role }, role),
+              ),
+            );
+            select.addEventListener('change', () =>
+              client.updateMember(member.id, { role: select.value }).then(refresh, (e) => setStatus(e.message)),
+            );
+            head.append(select);
+          } else {
+            head.append(createElement('span', { className: 'muted' }, member.role));
+          }
+          const devices = createElement(
+            'ul',
+            { ariaLabel: `Devices of ${member.name}` },
+            ...member.devices.map((device) => {
+              const row = createElement(
+                'li',
+                { className: 'row' },
+                createElement('span', {}, device.label),
+                createElement('span', { className: 'muted' }, device.kind === 'key' ? 'device key' : 'passkey'),
+                device.current ? createElement('strong', {}, 'this device') : '',
+              );
+              // Anyone may remove their own devices, an admin anyone's; the server decides.
+              if (member.current || isAdmin) {
+                row.append(
+                  button('Remove', () => client.removeDevice(device.id).then(refresh, (e) => setStatus(e.message))),
+                );
+              }
+              return row;
+            }),
           );
-          select.addEventListener('change', () =>
-            client.updateMember(member.id, { role: select.value }).then(refresh, (e) => setStatus(e.message)),
-          );
-          return createElement('li', { className: 'row' }, createElement('span', {}, member.label), select);
+          return createElement('li', {}, head, devices);
         }),
       ),
     ];
   }
 
   function render() {
-    const { passkey, group } = me;
-    toolbar.replaceChildren(button('Sign out', async () => (await client.signOut(), showWelcome())));
-    if (roles.can(passkey.role, 'link')) {
+    const { member, group } = me;
+    const onKey = me.device?.kind === 'key';
+    toolbar.replaceChildren(
+      button('Sign out', async () => {
+        // A device key is the cookie itself, so signing out forgets this device (it needs a new scan).
+        if (
+          onKey &&
+          !confirm('Signing out removes this device from the group. You will need a new scan to get back in.')
+        ) {
+          return;
+        }
+        await client.signOut();
+        showWelcome();
+      }),
+    );
+    if (onKey) {
+      toolbar.append(
+        button('Add a passkey to this device', async () => {
+          try {
+            Object.assign(me, await client.upgradeToPasskey());
+            render();
+            setStatus('This device now has a passkey.');
+          } catch (e) {
+            setStatus(e.message);
+          }
+        }),
+      );
+    }
+    if (roles.can(member.role, 'link')) {
       mountScanButton(toolbar, {
         client,
         onLinked: ({ label }) => setStatus(`Linked ${label}. They start as a viewer.`),
@@ -182,7 +258,7 @@ async function showHome(me) {
       });
     }
     const add = createElement('form', { className: 'row' });
-    if (roles.can(passkey.role, 'write')) {
+    if (roles.can(member.role, 'write')) {
       const text = createElement('input', { ariaLabel: 'New note', placeholder: 'New note' });
       add.append(text, createElement('button', { type: 'submit' }, 'Add'));
       add.addEventListener('submit', async (event) => {
@@ -195,7 +271,7 @@ async function showHome(me) {
       });
     }
     root.replaceChildren(
-      createElement('p', { dataset: { testid: 'signed-in' } }, `${passkey.label} in ${group.name} · ${passkey.role}`),
+      createElement('p', { dataset: { testid: 'signed-in' } }, `${member.name} in ${group.name} · ${member.role}`),
       toolbar,
       status,
       createElement('h2', {}, 'Notes'),
@@ -211,8 +287,9 @@ async function showHome(me) {
   events.addEventListener('notes-changed', () => refresh());
   connectSessionEvents(events, {
     onMembersChanged: () => refresh(),
+    onMemberEnded: () => refresh(),
     onRoleChanged: (role) => {
-      me.passkey.role = role;
+      me.member.role = role;
       render();
     },
     onRevoked: () => showWelcome('This device was removed from the group.'),
@@ -223,7 +300,7 @@ async function showHome(me) {
   if (pendingToken) {
     const token = pendingToken;
     pendingToken = null;
-    client.claimLink(token).then(
+    client.claimLink(token, { outcome: 'new-member' }).then(
       ({ label }) => setStatus(`Linked ${label}.`),
       (e) => setStatus(e.message),
     );

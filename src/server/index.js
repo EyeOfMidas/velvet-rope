@@ -8,3 +8,4 @@ export { createHub } from './hub.js';
 export { eventStreams, HEARTBEAT_MS } from './stream.js';
 export { createInvite } from './invites.js';
 export { GROUP_CREATION_MODES } from './options.js';
+export { Refusal } from './hooks.js';

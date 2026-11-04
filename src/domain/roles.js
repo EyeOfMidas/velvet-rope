@@ -4,9 +4,11 @@
 // admin) are in canManageMember.
 
 /** Capabilities velvet-rope itself checks. The app's admin role must have all of them. */
-export const LIBRARY_CAPABILITIES = Object.freeze(['link', 'manageMembers', 'deleteGroup']);
+export const LIBRARY_CAPABILITIES = Object.freeze(['link', 'manageMembers', 'deleteGroup', 'linkOwnDevice']);
 
-const MANAGE_ACTIONS = new Set(['rename', 'setRole', 'revoke']);
+// Actions that need manageMembers. 'revoke' is a deprecated alias of 'remove'.
+const MANAGE_ACTIONS = new Set(['setRole', 'remove', 'revoke', 'relink']);
+const DEVICE_ACTIONS = new Set(['rename', 'revoke']);
 const OK = Object.freeze({ ok: true });
 const no = (reason) => ({ ok: false, reason });
 
@@ -31,13 +33,18 @@ export function defineRoles(grants, { admin, linked }) {
   function removesAdmin(target, change) {
     if (target.role !== admin) return false;
     if (change.action === 'setRole') return change.role !== admin;
-    return change.action === 'leave' || change.action === 'revoke';
+    return change.action === 'leave' || change.action === 'remove' || change.action === 'revoke';
   }
 
   /**
    * Per-target member management. `actor` and `target` are { id, role }; `change` is
-   * { action: 'rename' | 'setRole' | 'revoke' | 'leave', role? }; `admins` is the group's count
-   * of live admins (missing counts as 1, so the guard fails closed).
+   * { action: 'setRole' | 'remove' | 'relink' | 'rename' | 'leave' | 'revoke', role? }.
+   *   setRole, remove, relink — need manageMembers
+   *   rename                  — the actor's own member, or anyone with manageMembers
+   *   leave                   — the actor's own member only
+   *   revoke                  — DEPRECATED alias of remove; kept until the routes move to remove
+   * `admins` is the group's count of live admin members (missing counts as 1, so the guard
+   * fails closed). The last-admin rule covers setRole away from admin, remove/revoke and leave.
    * Returns { ok: true } or { ok: false, reason } where reason is one of:
    *   forbidden   — the actor may not do this at all
    *   invalidRole — setRole to an unknown role
@@ -45,13 +52,28 @@ export function defineRoles(grants, { admin, linked }) {
    */
   function canManageMember(actor, target, change, admins = 1) {
     const action = change?.action;
+    const self = actor.id === target.id && isRole(actor.role);
     if (action === 'leave') {
-      if (actor.id !== target.id || !isRole(actor.role)) return no('forbidden');
+      if (!self) return no('forbidden');
+    } else if (action === 'rename') {
+      if (!self && !can(actor.role, 'manageMembers')) return no('forbidden');
     } else {
       if (!MANAGE_ACTIONS.has(action) || !can(actor.role, 'manageMembers')) return no('forbidden');
       if (action === 'setRole' && !isRole(change.role)) return no('invalidRole');
     }
     return removesAdmin(target, change) && admins <= 1 ? no('lastAdmin') : OK;
+  }
+
+  /**
+   * Device management. `actor` is { id, role } (id is the member id); `device` is
+   * { memberId }, the member that owns it; `action` is 'rename' or 'revoke'. A member may
+   * always rename or revoke their own devices; anyone else's need manageMembers.
+   * Returns { ok: true } or { ok: false, reason: 'forbidden' }.
+   */
+  function canManageDevice(actor, device, action) {
+    if (!DEVICE_ACTIONS.has(action) || !isRole(actor.role)) return no('forbidden');
+    const own = actor.id !== undefined && device.memberId === actor.id;
+    return own || can(actor.role, 'manageMembers') ? OK : no('forbidden');
   }
 
   return Object.freeze({
@@ -61,5 +83,6 @@ export function defineRoles(grants, { admin, linked }) {
     isRole,
     can,
     canManageMember,
+    canManageDevice,
   });
 }

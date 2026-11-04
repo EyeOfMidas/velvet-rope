@@ -61,7 +61,7 @@ describe('POST /api/auth/options', () => {
 });
 
 describe('POST /api/auth', () => {
-  it('signs in with an existing passkey and names the passkey and its group', async () => {
+  it('signs in with an existing passkey and names the member, device and group', async () => {
     const auth = setup();
     const created = await createGroup(auth);
     const res = await signIn(auth.authenticate(await signInOptions()));
@@ -73,13 +73,13 @@ describe('POST /api/auth', () => {
     expect((await me(cookie)).json()).toEqual(created.json());
   });
 
-  it('records the new signature counter and when the passkey was last used', async () => {
+  it('records the new signature counter and when the device was last used', async () => {
     const auth = setup();
     await createGroup(auth);
     clock.t += 60 * MINUTE;
     await signIn(auth.authenticate(await signInOptions()));
     expect(db.prepare('SELECT sign_count FROM credentials').get().sign_count).toBe(1);
-    expect(db.prepare('SELECT last_used_at FROM passkeys').get().last_used_at).toBe(clock.t);
+    expect(db.prepare('SELECT last_used_at FROM devices').get().last_used_at).toBe(clock.t);
   });
 });
 
@@ -109,7 +109,7 @@ describe('POST /api/auth/sign-out', () => {
     expect((await me(cookie)).statusCode).toBe(401);
   });
 
-  it('leaves the passkey’s other sessions alone', async () => {
+  it('leaves the device’s other sessions alone', async () => {
     const auth = setup();
     const first = sessionCookie(await createGroup(auth));
     const second = sessionCookie(await signIn(auth.authenticate(await signInOptions())));
@@ -201,15 +201,26 @@ describe('POST /api/auth rejects', () => {
     expect(res.statusCode).toBe(400);
   });
 
-  it('a revoked passkey, saying it was removed from its group', async () => {
+  it('a revoked device, saying it was removed from its group', async () => {
     const auth = setup();
     await createGroup(auth);
-    db.prepare('UPDATE passkeys SET revoked_at = ?').run(clock.t);
+    db.prepare('UPDATE devices SET revoked_at = ?').run(clock.t);
     const res = await signIn(auth.authenticate(await signInOptions()));
     expect(res.statusCode).toBe(401);
     expect(res.json()).toMatchObject({ error: 'removed' });
     expect(sessionCookie(res)).toBeUndefined();
     expect(count('sessions')).toBe(1); // only the one from creating the group
+  });
+
+  it('a device whose member has ended, saying it was removed from its group', async () => {
+    const auth = setup();
+    await createGroup(auth);
+    db.prepare(`UPDATE members SET ended_at = ?, ended_reason = 'removed'`).run(clock.t);
+    const res = await signIn(auth.authenticate(await signInOptions()));
+    expect(res.statusCode).toBe(401);
+    expect(res.json()).toMatchObject({ error: 'removed' });
+    expect(sessionCookie(res)).toBeUndefined();
+    expect(count('sessions')).toBe(1);
   });
 
   it('a passkey whose group was deleted, saying it was removed from its group', async () => {

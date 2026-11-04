@@ -7,11 +7,12 @@ const CSRF = { 'content-type': 'application/json', 'x-velvet-rope': '1' };
 let app;
 afterEach(() => app?.close());
 
-function setup(origin) {
+function setup(origin, extra = {}) {
   app = buildApp({
     db: openDb(':memory:'),
     now: () => 1_700_000_000_000,
     config: { rpId: 'localhost', rpName: 'Test app', origin },
+    ...extra,
   });
   return createSoftAuthenticator({ origin });
 }
@@ -48,5 +49,22 @@ describe('session cookie name', () => {
   it('stays velvet_rope_session on plain-http localhost', async () => {
     const auth = setup('http://localhost:5173');
     expect(await createGroup(auth)).toMatch(/^velvet_rope_session=/);
+  });
+
+  it('uses sessionCookieName exactly, with no __Host- prefix, even behind https', async () => {
+    const auth = setup('https://localhost', { sessionCookieName: 'its_cookie' });
+    const header = await createGroup(auth);
+    expect(header).toMatch(/^its_cookie=[A-Za-z0-9_-]{43}; Path=\/;/);
+    expect(header).toContain('; HttpOnly');
+    expect(header).toContain('; Secure');
+    expect(header).toContain('SameSite=Strict');
+    const value = header.split(';')[0].split('=')[1];
+    expect((await me(`its_cookie=${value}`)).statusCode).toBe(200);
+    expect((await me(`__Host-velvet_rope_session=${value}`)).statusCode).toBe(401);
+  });
+
+  it.each(['', 'has space', 'a;b', 42])('throws at setup for invalid sessionCookieName %j', async (name) => {
+    setup('http://localhost:5173', { sessionCookieName: name });
+    await expect(app.ready()).rejects.toThrow(/sessionCookieName/);
   });
 });

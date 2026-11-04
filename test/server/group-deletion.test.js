@@ -1,9 +1,8 @@
 // Deleting a whole group (DELETE /group). Admins only. Every row of the group goes through
 // ON DELETE CASCADE, app tables included. Open streams of the group hear group-deleted and end.
 import { describe, it, expect, afterEach } from 'vitest';
-import { randomUUID } from 'node:crypto';
 import { buildApp, openDb } from './harness.js';
-import { createSession } from '../../src/testing/members.js';
+import { addMember } from '../../src/testing/members.js';
 import { createSoftAuthenticator } from '../../src/testing/soft-authenticator.js';
 
 const ORIGIN = 'http://localhost:5173';
@@ -36,17 +35,13 @@ async function createGroup(groupName = 'Plans') {
     .flat()
     .find((c) => c?.startsWith('velvet_rope_session='))
     .split(';')[0];
-  const { passkey, group } = (await me(cookie)).json();
-  return { id: passkey.id, cookie, groupId: group.id };
+  const { member, group } = (await me(cookie)).json();
+  return { id: member.id, cookie, groupId: group.id };
 }
 
 function insertMember(groupId, role) {
-  const id = randomUUID();
-  db.prepare(
-    `INSERT INTO passkeys (id, group_id, label, role, user_handle, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-  ).run(id, groupId, `${role} device`, role, randomUUID(), Date.now());
-  return { id, cookie: `velvet_rope_session=${createSession(db, id, Date.now())}` };
+  const { memberId, token } = addMember(db, { groupId, role });
+  return { id: memberId, cookie: `velvet_rope_session=${token}` };
 }
 
 const count = (table, groupId) => db.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE group_id = ?`).get(groupId).n;
@@ -58,7 +53,7 @@ describe('DELETE /api/group', () => {
     const viewer = insertMember(creator.groupId, 'viewer');
     const other = await createGroup('Other');
     const { token } = (await send('POST', '/api/link-requests', '', { label: 'Laptop' })).json();
-    await send('POST', '/api/link-requests/claim', creator.cookie, { token });
+    await send('POST', '/api/link-requests/claim', creator.cookie, { token, outcome: 'new-member' });
     expect(count('link_requests', creator.groupId)).toBe(1);
 
     const res = await deleteGroup(creator.cookie, 'Plans');
@@ -66,13 +61,13 @@ describe('DELETE /api/group', () => {
     expect([res.headers['set-cookie']].flat().some((c) => /^velvet_rope_session=;/.test(c ?? ''))).toBe(true);
 
     expect(db.prepare('SELECT COUNT(*) AS n FROM groups WHERE id = ?').get(creator.groupId).n).toBe(0);
-    for (const table of ['passkeys', 'link_requests', 'audit_log']) {
+    for (const table of ['members', 'devices', 'link_requests', 'audit_log']) {
       expect(count(table, creator.groupId)).toBe(0);
     }
     const leftovers = db
       .prepare(
         `SELECT
-           (SELECT COUNT(*) FROM sessions s JOIN passkeys p ON p.id = s.passkey_id) AS sessions,
+           (SELECT COUNT(*) FROM sessions s JOIN devices d ON d.id = s.device_id) AS sessions,
            (SELECT COUNT(*) FROM credentials) AS credentials`,
       )
       .get();

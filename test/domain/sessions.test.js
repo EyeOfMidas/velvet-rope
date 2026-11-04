@@ -6,7 +6,15 @@ const DAY = 24 * 60 * 60 * 1000;
 describe('session expiry', () => {
   it('lasts 30 days from the moment it is issued or refreshed', () => {
     expect(SESSION_TTL_MS).toBe(30 * DAY);
+    expect(sessionExpiresAt(1_000, SESSION_TTL_MS)).toBe(1_000 + 30 * DAY);
+  });
+
+  it('defaults to 30 days when no lifetime is passed', () => {
     expect(sessionExpiresAt(1_000)).toBe(1_000 + 30 * DAY);
+  });
+
+  it('uses the lifetime the caller passes', () => {
+    expect(sessionExpiresAt(1_000, 400 * DAY)).toBe(1_000 + 400 * DAY);
   });
 
   it('is live until its expiry and dead from then on', () => {

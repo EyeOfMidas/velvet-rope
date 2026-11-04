@@ -4,7 +4,7 @@ import { defineRoles } from '../../src/domain/roles.js';
 // A four-role sample matrix: an admin, a role that can link, and two that can't.
 const roles = defineRoles(
   {
-    admin: ['read', 'write', 'link', 'manageMembers', 'deleteGroup'],
+    admin: ['read', 'write', 'link', 'manageMembers', 'deleteGroup', 'linkOwnDevice'],
     collaborator: ['read', 'write', 'link'],
     contributor: ['read', 'write'],
     viewer: ['read'],
@@ -38,13 +38,16 @@ describe('defineRoles', () => {
   it('refuses a matrix whose admin or linked role is missing', () => {
     expect(() => defineRoles({ viewer: [] }, { admin: 'admin', linked: 'viewer' })).toThrow(/admin/);
     expect(() =>
-      defineRoles({ admin: ['link', 'manageMembers', 'deleteGroup'] }, { admin: 'admin', linked: 'guest' }),
+      defineRoles(
+        { admin: ['link', 'manageMembers', 'deleteGroup', 'linkOwnDevice'] },
+        { admin: 'admin', linked: 'guest' },
+      ),
     ).toThrow(/guest/);
   });
 
   it('refuses an admin role without the library capabilities', () => {
     expect(() => defineRoles({ admin: ['link'] }, { admin: 'admin', linked: 'admin' })).toThrow(
-      /manageMembers, deleteGroup/,
+      /manageMembers, deleteGroup, linkOwnDevice/,
     );
   });
 });
@@ -66,6 +69,8 @@ describe('canManageMember', () => {
   const TABLES = {
     rename: MANAGE,
     revoke: MANAGE,
+    remove: MANAGE,
+    relink: MANAGE,
     'setRole:admin': MANAGE,
     'setRole:collaborator': MANAGE,
     'setRole:contributor': MANAGE,
@@ -133,8 +138,36 @@ describe('canManageMember', () => {
       expect(check(admin, admin, { action: 'setRole', role: 'viewer' })).toBe('ok');
     });
 
-    it('a collaborator can’t rename their own member', () => {
-      expect(check(self('collaborator'), self('collaborator'), { action: 'rename' })).toBe(F);
+    it('anyone can rename their own member, even without manageMembers', () => {
+      for (const role of TARGETS) expect(check(self(role), self(role), { action: 'rename' })).toBe('ok');
+    });
+
+    it('only leave and rename work on themselves without manageMembers', () => {
+      const collaborator = self('collaborator');
+      for (const action of ['remove', 'revoke', 'relink']) {
+        expect(check(collaborator, collaborator, { action })).toBe(F);
+      }
+      expect(check(collaborator, collaborator, { action: 'setRole', role: 'viewer' })).toBe(F);
+    });
+
+    it('an admin can remove and relink their own member', () => {
+      expect(check(self('admin'), self('admin'), { action: 'remove' })).toBe('ok');
+      expect(check(self('admin'), self('admin'), { action: 'relink' })).toBe('ok');
+    });
+
+    it('revoke behaves like remove', () => {
+      const viewer = { id: 'v', role: 'viewer' };
+      const admin = { id: 'a', role: 'admin' };
+      for (const [actor, target, admins] of [
+        [admin, viewer, 1],
+        [admin, admin, 1],
+        [viewer, admin, 2],
+        [admin, admin, 2],
+      ]) {
+        expect(check(actor, target, { action: 'revoke' }, admins)).toBe(
+          check(actor, target, { action: 'remove' }, admins),
+        );
+      }
     });
   });
 
@@ -147,6 +180,7 @@ describe('canManageMember', () => {
     it('can’t leave, revoke themselves or step down', () => {
       expect(check(me, me, { action: 'leave' }, 1)).toBe(L);
       expect(check(me, me, { action: 'revoke' }, 1)).toBe(L);
+      expect(check(me, me, { action: 'remove' }, 1)).toBe(L);
       for (const role of ['collaborator', 'contributor', 'viewer']) {
         expect(check(me, me, { action: 'setRole', role }, 1)).toBe(L);
       }
@@ -154,11 +188,13 @@ describe('canManageMember', () => {
 
     it('can still rename themselves and keep the admin role', () => {
       expect(check(me, me, { action: 'rename' }, 1)).toBe('ok');
+      expect(check(me, me, { action: 'relink' }, 1)).toBe('ok');
       expect(check(me, me, { action: 'setRole', role: 'admin' }, 1)).toBe('ok');
     });
 
     it('doesn’t limit changes to anyone else', () => {
       expect(check(me, viewer, { action: 'revoke' }, 1)).toBe('ok');
+      expect(check(me, viewer, { action: 'remove' }, 1)).toBe('ok');
       expect(check(me, viewer, { action: 'setRole', role: 'admin' }, 1)).toBe('ok');
       expect(check(viewer, viewer, { action: 'leave' }, 1)).toBe('ok');
     });
@@ -166,6 +202,7 @@ describe('canManageMember', () => {
     it('lifts once there’s a second admin', () => {
       expect(check(me, me, { action: 'leave' }, 2)).toBe('ok');
       expect(check(me, other, { action: 'revoke' }, 2)).toBe('ok');
+      expect(check(me, other, { action: 'remove' }, 2)).toBe('ok');
       expect(check(me, other, { action: 'setRole', role: 'viewer' }, 2)).toBe('ok');
     });
 
@@ -176,5 +213,44 @@ describe('canManageMember', () => {
     it('reports forbidden, not lastAdmin, to someone who can’t manage members', () => {
       expect(check(viewer, me, { action: 'revoke' }, 1)).toBe(F);
     });
+  });
+});
+
+// Device rules: a member manages their own devices; anyone else's need manageMembers.
+describe('canManageDevice', () => {
+  const canManageDevice = roles.canManageDevice;
+  const outcome = (result) => (result.ok ? 'ok' : result.reason);
+  const mine = { id: 'd1', memberId: 'me' };
+  const theirs = { id: 'd2', memberId: 'someone' };
+
+  for (const action of ['rename', 'revoke']) {
+    for (const role of ['admin', 'collaborator', 'contributor', 'viewer']) {
+      it(`${role} can ${action} their own device`, () => {
+        expect(outcome(canManageDevice({ id: 'me', role }, mine, action))).toBe('ok');
+      });
+    }
+
+    it(`an admin can ${action} someone else's device`, () => {
+      expect(outcome(canManageDevice({ id: 'me', role: 'admin' }, theirs, action))).toBe('ok');
+    });
+
+    for (const role of ['collaborator', 'contributor', 'viewer']) {
+      it(`${role} can't ${action} someone else's device`, () => {
+        expect(outcome(canManageDevice({ id: 'me', role }, theirs, action))).toBe('forbidden');
+      });
+    }
+  }
+
+  it('refuses unknown actions and unknown roles', () => {
+    expect(outcome(canManageDevice({ id: 'me', role: 'admin' }, mine, 'nuke'))).toBe('forbidden');
+    expect(outcome(canManageDevice({ id: 'me', role: 'admin' }, mine, undefined))).toBe('forbidden');
+    expect(outcome(canManageDevice({ id: 'me', role: 'owner' }, theirs, 'revoke'))).toBe('forbidden');
+  });
+});
+
+describe('linkOwnDevice', () => {
+  it('is a library capability granted to the admin only', () => {
+    expect(roles.can('admin', 'linkOwnDevice')).toBe(true);
+    for (const role of ['collaborator', 'contributor', 'viewer']) expect(roles.can(role, 'linkOwnDevice')).toBe(false);
   });
 });

@@ -76,22 +76,37 @@ describe('POST /api/groups/options', () => {
 });
 
 describe('POST /api/groups', () => {
-  it('creates the group, an admin passkey, its credential and a session', async () => {
+  it('creates the group, an admin member with a passkey device, its credential and a session', async () => {
     const auth = setup();
     const res = await createGroup(auth);
     expect(res.statusCode).toBe(201);
     expect(res.json()).toEqual({
-      passkey: { id: expect.any(String), label: 'Firefox on Windows', role: 'admin' },
+      member: { id: expect.any(String), name: 'Firefox on Windows', role: 'admin' },
+      device: { id: expect.any(String), label: 'Firefox on Windows', kind: 'passkey' },
       group: { id: expect.any(String), name: 'Plans' },
+      passkey: { id: res.json().device.id, label: 'Firefox on Windows', role: 'admin' },
     });
-    expect([count('groups'), count('passkeys'), count('credentials'), count('sessions')]).toEqual([1, 1, 1, 1]);
-    const passkey = db.prepare('SELECT * FROM passkeys').get();
-    expect(passkey.user_handle).toBe(auth.credentials[0].userHandle);
+    expect([count('groups'), count('members'), count('devices'), count('credentials'), count('sessions')]).toEqual([
+      1, 1, 1, 1, 1,
+    ]);
+    const member = db.prepare('SELECT * FROM members').get();
+    expect(member).toMatchObject({ id: res.json().member.id, name: 'Firefox on Windows', role: 'admin' });
+    const device = db.prepare('SELECT * FROM devices').get();
+    expect(device).toMatchObject({ id: res.json().device.id, member_id: member.id, kind: 'passkey' });
+    expect(device.user_handle).toBe(auth.credentials[0].userHandle);
     const credential = db.prepare('SELECT * FROM credentials').get();
     expect(credential).toMatchObject({
       credential_id: auth.credentials[0].id,
-      passkey_id: passkey.id,
+      device_id: device.id,
     });
+    expect(db.prepare('SELECT device_id FROM sessions').pluck().get()).toBe(device.id);
+  });
+
+  it('names the member from the optional name, and the device from the label', async () => {
+    const auth = setup();
+    const res = await createGroup(auth, { groupName: 'Plans', label: 'Firefox on Windows', name: '  Ada  ' });
+    expect(res.json().member.name).toBe('Ada');
+    expect(res.json().device.label).toBe('Firefox on Windows');
   });
 
   it('sets an HttpOnly, Secure, SameSite=Strict session cookie for the whole site', async () => {
@@ -115,11 +130,11 @@ describe('POST /api/groups', () => {
     expect(JSON.stringify(row)).not.toContain(value);
   });
 
-  it('never reuses a user handle across passkeys', async () => {
+  it('never reuses a user handle across devices', async () => {
     setup();
     await createGroup(createSoftAuthenticator({ origin: ORIGIN }));
     await createGroup(createSoftAuthenticator({ origin: ORIGIN }));
-    const handles = db.prepare('SELECT user_handle FROM passkeys').all();
+    const handles = db.prepare('SELECT user_handle FROM devices').all();
     expect(handles).toHaveLength(2);
     expect(handles[0].user_handle).not.toBe(handles[1].user_handle);
   });
@@ -185,12 +200,29 @@ describe('POST /api/groups rejects', () => {
 });
 
 describe('GET /api/me', () => {
-  it('names the signed-in passkey and its group', async () => {
+  it('names the signed-in member, device and group, with the deprecated passkey alias', async () => {
     const auth = setup();
     const created = await createGroup(auth);
     const res = await me(sessionCookie(created));
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual(created.json());
+    expect(res.json()).toEqual({
+      member: { id: expect.any(String), name: 'Firefox on Windows', role: 'admin' },
+      device: { id: expect.any(String), label: 'Firefox on Windows', kind: 'passkey' },
+      group: { id: expect.any(String), name: 'Plans' },
+      passkey: { id: res.json().device.id, label: 'Firefox on Windows', role: 'admin' },
+    });
+  });
+
+  it('refuses a session whose device was revoked or whose member ended', async () => {
+    const auth = setup();
+    const cookie = sessionCookie(await createGroup(auth));
+    db.prepare('UPDATE devices SET revoked_at = ?').run(clock.t);
+    expect((await me(cookie)).statusCode).toBe(401);
+    db.prepare('UPDATE devices SET revoked_at = NULL').run();
+    expect((await me(cookie)).statusCode).toBe(200);
+    db.prepare(`UPDATE members SET ended_at = ?, ended_reason = 'removed'`).run(clock.t);
+    expect((await me(cookie)).statusCode).toBe(401);
   });
 
   it('answers 401 without a session cookie or with an unknown one', async () => {
@@ -208,5 +240,43 @@ describe('GET /api/me', () => {
     expect((await me(cookie)).statusCode).toBe(200);
     clock.t += 30 * DAY;
     expect((await me(cookie)).statusCode).toBe(401);
+  });
+});
+
+describe('ids option', () => {
+  function counter(prefix) {
+    let n = 0;
+    return () => `${prefix}-${++n}`;
+  }
+
+  it('uses the app�s generators for the group, member and device', async () => {
+    clock = { t: 1_700_000_000_000 };
+    db = openDb(':memory:');
+    app = buildApp({
+      db,
+      now: () => clock.t,
+      config,
+      ids: { group: counter('g'), member: counter('m'), device: counter('d') },
+    });
+    const res = await createGroup(createSoftAuthenticator({ origin: ORIGIN }));
+    expect(res.statusCode).toBe(201);
+    expect(res.json()).toMatchObject({ group: { id: 'g-1' }, member: { id: 'm-1' }, device: { id: 'd-1' } });
+    expect(db.prepare('SELECT id FROM groups').pluck().get()).toBe('g-1');
+  });
+
+  it('keeps the default for a generator that is not given', async () => {
+    clock = { t: 1_700_000_000_000 };
+    db = openDb(':memory:');
+    app = buildApp({ db, now: () => clock.t, config, ids: { member: () => 'm-custom' } });
+    const res = await createGroup(createSoftAuthenticator({ origin: ORIGIN }));
+    expect(res.json().member.id).toBe('m-custom');
+    expect(res.json().group.id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(res.json().device.id).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it('throws at setup for a non-function', async () => {
+    clock = { t: 1 };
+    db = openDb(':memory:');
+    await expect(buildApp({ db, config, ids: { group: 'nope' } }).ready()).rejects.toThrow(/ids\.group/);
   });
 });

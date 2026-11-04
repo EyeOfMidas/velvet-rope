@@ -18,9 +18,9 @@ afterEach(async () => {
   await app?.close();
 });
 
-async function setup({ heartbeatMs } = {}) {
+async function setup({ heartbeatMs, credentials } = {}) {
   clock = { t: 1_700_000_000_000 };
-  app = buildApp({ db: openDb(':memory:'), now: () => clock.t, config, heartbeatMs });
+  app = buildApp({ db: openDb(':memory:'), now: () => clock.t, config, heartbeatMs, credentials });
   await app.listen({ port: 0, host: '127.0.0.1' });
   base = `http://127.0.0.1:${app.server.address().port}`;
 }
@@ -61,12 +61,12 @@ async function newDevice(label = 'Desktop') {
   return { token: res.json().token, link: cookieFrom(res, 'velvet_rope_link') };
 }
 
-const claim = (cookie, token) =>
+const claim = (cookie, token, choice = { outcome: 'new-member' }) =>
   app.inject({
     method: 'POST',
     url: '/api/link-requests/claim',
     headers: { ...CSRF, cookie },
-    payload: { token },
+    payload: { token, ...choice },
   });
 
 async function linkDesktop(link) {
@@ -144,8 +144,15 @@ describe('GET /api/link-requests/current/events', () => {
     expect(stream.res.headers.get('content-type')).toBe('text/event-stream');
     expect(stream.res.headers.get('x-accel-buffering')).toBe('no');
     expect(stream.events()).toEqual([
-      { event: 'status', data: { status: 'pending', expiresAt: clock.t + 5 * MINUTE } },
+      { event: 'status', data: { status: 'pending', expiresAt: clock.t + 5 * MINUTE, credentials: ['passkey'] } },
     ]);
+  });
+
+  it('carries the credential policy', async () => {
+    await setup({ credentials: ['passkey', 'key'] });
+    const { link } = await newDevice();
+    const stream = await statusStream(link);
+    expect(stream.events()[0].data.credentials).toEqual(['passkey', 'key']);
   });
 
   it('sends claimed when a scanner claims, then completed', async () => {
@@ -160,9 +167,21 @@ describe('GET /api/link-requests/current/events', () => {
     await stream.waitFor((t) => t.includes('"completed"'));
 
     expect(stream.events().map((e) => e.data)).toEqual([
-      { status: 'pending', expiresAt: clock.t + 5 * MINUTE },
-      { status: 'claimed', expiresAt: clock.t + 5 * MINUTE, groupName: 'Plans' },
-      { status: 'completed', expiresAt: clock.t + 5 * MINUTE, groupName: 'Plans' },
+      { status: 'pending', expiresAt: clock.t + 5 * MINUTE, credentials: ['passkey'] },
+      {
+        status: 'claimed',
+        expiresAt: clock.t + 5 * MINUTE,
+        groupName: 'Plans',
+        outcome: 'new-member',
+        credentials: ['passkey'],
+      },
+      {
+        status: 'completed',
+        expiresAt: clock.t + 5 * MINUTE,
+        groupName: 'Plans',
+        outcome: 'new-member',
+        credentials: ['passkey'],
+      },
     ]);
     expect(stream.text).not.toContain(token);
   });
@@ -210,7 +229,7 @@ describe('group subscribers during linking', () => {
     expect(storeStream.events()).toEqual([
       {
         event: 'members-changed',
-        data: { id: done.json().passkey.id, label: 'Firefox on Windows' },
+        data: { id: done.json().member.id, label: 'Firefox on Windows' },
       },
     ]);
     expect(storeStream.text).not.toContain(token);

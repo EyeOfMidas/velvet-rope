@@ -1,6 +1,7 @@
 // The events velvet-rope publishes on the group's stream (GET /events), for an EventSource the
 // app already has open (it may listen for its own events on the same one). Returns stop().
-//   members-changed  someone joined, left, or was renamed, re-roled or revoked
+//   members-changed  someone joined, left, or was renamed, re-roled, removed or had a device revoked
+//   member-ended     a member left or was removed: { id, reason }
 //   role-changed     this device's role changed: { role }
 //   session-revoked  this device was removed; the server ends the stream
 //   group-deleted    an admin deleted the group: { name }; the server ends the stream
@@ -14,10 +15,20 @@ const parse = (event) => {
 
 export function connectSessionEvents(
   source,
-  { onMembersChanged = () => {}, onRoleChanged = () => {}, onRevoked = () => {}, onGroupDeleted = () => {} },
+  {
+    onMembersChanged = () => {},
+    onMemberEnded = () => {},
+    onRoleChanged = () => {},
+    onRevoked = () => {},
+    onGroupDeleted = () => {},
+  },
 ) {
   const listeners = {
     'members-changed': () => onMembersChanged(),
+    'member-ended': (event) => {
+      const data = parse(event);
+      if (typeof data?.id === 'string') onMemberEnded({ id: data.id, reason: data.reason });
+    },
     'role-changed': (event) => {
       const role = parse(event)?.role;
       if (typeof role === 'string') onRoleChanged(role);

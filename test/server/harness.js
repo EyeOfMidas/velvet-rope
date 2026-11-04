@@ -11,7 +11,7 @@ export const CSRF = { 'content-type': 'application/json', 'x-velvet-rope': '1' }
 
 export const roles = defineRoles(
   {
-    admin: ['read', 'write', 'link', 'manageMembers', 'deleteGroup'],
+    admin: ['read', 'write', 'link', 'manageMembers', 'deleteGroup', 'linkOwnDevice'],
     collaborator: ['read', 'write', 'link'],
     contributor: ['read', 'write'],
     viewer: ['read'],
@@ -27,7 +27,7 @@ export function openDb(path = ':memory:') {
   db.exec(`CREATE TABLE audit_log (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     group_id         TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
-    actor_passkey_id TEXT REFERENCES passkeys(id) ON DELETE SET NULL,
+    actor_member_id   TEXT REFERENCES members(id) ON DELETE SET NULL,
     action           TEXT NOT NULL,
     target           TEXT,
     detail_json      TEXT NOT NULL DEFAULT '{}',
@@ -38,23 +38,30 @@ export function openDb(path = ':memory:') {
 
 function writeAudit(db, { groupId, actorId, action, target, detail = {}, at }) {
   db.prepare(
-    `INSERT INTO audit_log (group_id, actor_passkey_id, action, target, detail_json, at)
+    `INSERT INTO audit_log (group_id, actor_member_id, action, target, detail_json, at)
      VALUES (?, ?, ?, ?, ?, ?)`,
   ).run(groupId, actorId, action, target, JSON.stringify(detail), at);
 }
 
-/** Same arguments as an app's buildApp; `hub` is exposed for tests that publish app events. */
+/**
+ * Same arguments as an app's buildApp; `hub` is exposed for tests that publish app events. Any
+ * other plugin option (sessionTtlMs, eventsRoute, …) passes straight through, so a new option
+ * needs no change here.
+ */
 export function buildApp({
   db,
   now = Date.now,
   config: rpConfig = config,
-  heartbeatMs,
   rateLimits = null,
   groupCreation = 'open',
+  events,
+  hooks = {},
+  ...pluginOptions
 }) {
   const app = Fastify({ logger: false });
-  const hub = createHub();
+  const hub = events ?? createHub();
   app.register(velvetRope, {
+    ...pluginOptions,
     db,
     now,
     rp: { id: rpConfig.rpId, name: rpConfig.rpName, origin: rpConfig.origin },
@@ -62,8 +69,7 @@ export function buildApp({
     groupCreation,
     rateLimit: createRateLimiter(app, rateLimits),
     events: hub,
-    heartbeatMs,
-    hooks: { onAudit: writeAudit },
+    hooks: { onAudit: writeAudit, ...hooks },
   });
   app.decorate('hub', hub);
   app.addHook('onClose', async () => db.close());

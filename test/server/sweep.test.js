@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { createInvite } from '../../src/server/invites.js';
-import { createSession } from '../../src/testing/members.js';
+import { addMember, createSession } from '../../src/testing/members.js';
 import { saveChallenge } from '../../src/server/challenges.js';
 import { startSweeper, sweepExpired } from '../../src/server/sweep.js';
 import { openDb } from './harness.js';
@@ -14,20 +14,17 @@ const count = (db, table) => db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).ge
 function seed() {
   const db = openDb(':memory:');
   const groupId = randomUUID();
-  const passkeyId = randomUUID();
   db.prepare('INSERT INTO groups (id, name, created_at) VALUES (?, ?, ?)').run(groupId, 'S', T);
-  db.prepare(
-    `INSERT INTO passkeys (id, group_id, label, role, user_handle, created_at)
-     VALUES (?, ?, 'L', 'admin', ?, ?)`,
-  ).run(passkeyId, groupId, randomUUID(), T);
-  return { db, passkeyId };
+  const { deviceId } = addMember(db, { groupId, role: 'admin', now: T });
+  db.prepare('DELETE FROM sessions').run(); // each test makes the sessions it sweeps
+  return { db, deviceId };
 }
 
 describe('sweepExpired', () => {
   it('deletes expired sessions and keeps live ones', () => {
-    const { db, passkeyId } = seed();
-    createSession(db, passkeyId, T); // expires at T + 30 days
-    createSession(db, passkeyId, T + 10 * DAY);
+    const { db, deviceId } = seed();
+    createSession(db, deviceId, T); // expires at T + 30 days
+    createSession(db, deviceId, T + 10 * DAY);
 
     const swept = sweepExpired(db, T + SESSION_TTL_MS);
     expect(swept.sessions).toBe(1);
@@ -61,19 +58,19 @@ describe('startSweeper', () => {
 
   it('sweeps at once and then on every interval until stopped', () => {
     vi.useFakeTimers();
-    const { db, passkeyId } = seed();
+    const { db, deviceId } = seed();
     const clock = { t: T };
-    createSession(db, passkeyId, T - SESSION_TTL_MS); // already expired
+    createSession(db, deviceId, T - SESSION_TTL_MS); // already expired
     const stop = startSweeper(db, { now: () => clock.t, intervalMs: 1000 });
     expect(count(db, 'sessions')).toBe(0);
 
-    createSession(db, passkeyId, T - SESSION_TTL_MS + 500);
+    createSession(db, deviceId, T - SESSION_TTL_MS + 500);
     clock.t += 1000;
     vi.advanceTimersByTime(1000);
     expect(count(db, 'sessions')).toBe(0);
 
     stop();
-    createSession(db, passkeyId, T - SESSION_TTL_MS + 500);
+    createSession(db, deviceId, T - SESSION_TTL_MS + 500);
     vi.advanceTimersByTime(5000);
     expect(count(db, 'sessions')).toBe(1);
   });

@@ -1,6 +1,6 @@
 {
   "name": "velvet-rope",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Passkey sign-in and in-person QR device linking: a new device gets in when someone inside scans its code.",
   "author": "Justin Gilman",
   "license": "MPL-2.0",
@@ -25,6 +25,7 @@
   },
   "files": [
     "src/",
+    "docs/importing.md",
     "CHANGELOG.md"
   ],
   "scripts": {

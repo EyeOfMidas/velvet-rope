@@ -1,10 +1,9 @@
-// Live effects of passkey management: a revoked passkey's open streams get
+// Live effects of member management: a removed member’s open streams get
 // session-revoked and end; everyone else in the group gets members-changed. Real listener,
 // streams read with fetch (SSE is awkward through fastify.inject).
 import { describe, it, expect, afterEach } from 'vitest';
-import { randomUUID } from 'node:crypto';
 import { buildApp, openDb } from './harness.js';
-import { createSession } from '../../src/testing/members.js';
+import { addDevice, addMember } from '../../src/testing/members.js';
 import { createSoftAuthenticator } from '../../src/testing/soft-authenticator.js';
 
 const ORIGIN = 'http://localhost:5173';
@@ -49,17 +48,13 @@ async function createGroup(groupName = 'Plans') {
     .flat()
     .find((c) => c?.startsWith('velvet_rope_session='))
     .split(';')[0];
-  const { passkey, group } = (await me(cookie)).json();
-  return { id: passkey.id, cookie, groupId: group.id };
+  const { member, group } = (await me(cookie)).json();
+  return { id: member.id, cookie, groupId: group.id };
 }
 
 function insertMember(groupId, role) {
-  const id = randomUUID();
-  db.prepare(
-    `INSERT INTO passkeys (id, group_id, label, role, user_handle, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-  ).run(id, groupId, `${role} device`, role, randomUUID(), Date.now());
-  return { id, cookie: `velvet_rope_session=${createSession(db, id, Date.now())}` };
+  const { memberId, token } = addMember(db, { groupId, role });
+  return { id: memberId, cookie: `velvet_rope_session=${token}` };
 }
 
 const send = (method, url, cookie, payload = {}) => app.inject({ method, url, headers: { ...CSRF, cookie }, payload });
@@ -110,8 +105,8 @@ async function openStream(cookie) {
   return stream;
 }
 
-describe('passkey events', () => {
-  it('a revoked passkey’s stream gets session-revoked and ends; others only see members-changed', async () => {
+describe('member events', () => {
+  it('a removed member’s stream gets session-revoked and ends; others only see members-changed', async () => {
     await setup();
     const creator = await createGroup();
     const viewer = insertMember(creator.groupId, 'viewer');
@@ -125,7 +120,10 @@ describe('passkey events', () => {
     expect(viewerStream.events()).toContainEqual({ event: 'session-revoked', data: {} });
 
     await creatorStream.waitFor((t) => t.includes('event: members-changed'));
-    expect(creatorStream.events()).toEqual([{ event: 'members-changed', data: {} }]);
+    expect(creatorStream.events()).toEqual([
+      { event: 'member-ended', data: { id: viewer.id, reason: 'removed' } },
+      { event: 'members-changed', data: {} },
+    ]);
     expect(app.hub.subscriberCount(creator.groupId)).toBe(1);
   });
 
@@ -141,10 +139,13 @@ describe('passkey events', () => {
     await viewerStream.waitFor((t) => t.includes('event: session-revoked'));
     await viewerStream.waitForEnd();
     await creatorStream.waitFor((t) => t.includes('event: members-changed'));
-    expect(creatorStream.events().map((e) => e.event)).toEqual(['members-changed']);
+    expect(creatorStream.events()).toEqual([
+      { event: 'member-ended', data: { id: viewer.id, reason: 'leave' } },
+      { event: 'members-changed', data: {} },
+    ]);
   });
 
-  it('a role change tells only that passkey its new role, and the group that passkeys changed', async () => {
+  it('a role change tells only that member’s devices their new role, and the group that members changed', async () => {
     await setup();
     const creator = await createGroup();
     const viewer = insertMember(creator.groupId, 'viewer');
@@ -164,7 +165,7 @@ describe('passkey events', () => {
     expect(otherStream.events()).toEqual([{ event: 'members-changed', data: {} }]);
   });
 
-  it('a rename tells the group that passkeys changed', async () => {
+  it('a rename tells the group that members changed', async () => {
     await setup();
     const creator = await createGroup();
     const viewer = insertMember(creator.groupId, 'viewer');
@@ -174,5 +175,50 @@ describe('passkey events', () => {
 
     await viewerStream.waitFor((t) => t.includes('event: members-changed'));
     expect(viewerStream.events()).toEqual([{ event: 'members-changed', data: {} }]);
+  });
+
+  it('removing a member sends session-revoked to each of their devices', async () => {
+    await setup();
+    const creator = await createGroup();
+    const viewer = insertMember(creator.groupId, 'viewer');
+    const tablet = addDevice(db, { memberId: viewer.id, kind: 'key' });
+    const phoneStream = await openStream(viewer.cookie);
+    const tabletStream = await openStream(`velvet_rope_session=${tablet.token}`);
+
+    await send('DELETE', `/api/members/${viewer.id}`, creator.cookie);
+
+    for (const stream of [phoneStream, tabletStream]) {
+      await stream.waitFor((t) => t.includes('event: session-revoked'));
+      await stream.waitForEnd();
+    }
+  });
+
+  it('a role change reaches every device of the member', async () => {
+    await setup();
+    const creator = await createGroup();
+    const viewer = insertMember(creator.groupId, 'viewer');
+    const tablet = addDevice(db, { memberId: viewer.id, kind: 'key' });
+    const tabletStream = await openStream(`velvet_rope_session=${tablet.token}`);
+
+    await send('PATCH', `/api/members/${viewer.id}`, creator.cookie, { role: 'contributor' });
+
+    await tabletStream.waitFor((t) => t.includes('event: role-changed'));
+    expect(tabletStream.events()).toContainEqual({ event: 'role-changed', data: { role: 'contributor' } });
+  });
+
+  it('revoking a device ends only that device’s streams; the group hears members-changed', async () => {
+    await setup();
+    const creator = await createGroup();
+    const viewer = insertMember(creator.groupId, 'viewer');
+    const tablet = addDevice(db, { memberId: viewer.id, kind: 'key' });
+    const phoneStream = await openStream(viewer.cookie);
+    const tabletStream = await openStream(`velvet_rope_session=${tablet.token}`);
+
+    expect((await send('DELETE', `/api/devices/${tablet.deviceId}`, viewer.cookie)).statusCode).toBe(204);
+
+    await tabletStream.waitFor((t) => t.includes('event: session-revoked'));
+    await tabletStream.waitForEnd();
+    await phoneStream.waitFor((t) => t.includes('event: members-changed'));
+    expect(phoneStream.events()).toEqual([{ event: 'members-changed', data: {} }]);
   });
 });

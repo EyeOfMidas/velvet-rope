@@ -10,15 +10,15 @@ let app;
 let db;
 afterEach(() => app?.close());
 
-function setup() {
+function setup(options = {}) {
   db = openDb();
-  app = buildApp({ db });
+  app = buildApp({ db, ...options });
   const group = (id) => db.prepare('INSERT INTO groups (id, name, created_at) VALUES (?, ?, 0)').run(id, id);
   group('home');
   group('work');
   const member = (role, groupId = 'home') => {
-    const { id, token } = addMember(db, { groupId, role });
-    return { id, cookie: `notes_session=${token}` };
+    const { memberId, token } = addMember(db, { groupId, role });
+    return { id: memberId, cookie: `notes_session=${token}` };
   };
   return { member };
 }
@@ -80,5 +80,57 @@ describe('example notes', () => {
     const other = member('admin', 'work');
     expect((await send('PUT', `/api/notes/${id}`, other.cookie, { text: 'Mine' })).statusCode).toBe(404);
     expect((await send('DELETE', `/api/notes/${id}`, other.cookie)).statusCode).toBe(404);
+  });
+
+  it('lists members with their devices nested', async () => {
+    const { member } = setup();
+    const admin = member('admin');
+    const res = await send('GET', '/api/members', admin.cookie);
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject([
+      { id: admin.id, role: 'admin', current: true, devices: [{ kind: 'passkey', current: true }] },
+    ]);
+  });
+
+  it('shows the author’s member name on their notes', async () => {
+    const { member } = setup();
+    const writer = member('contributor');
+    db.prepare('UPDATE members SET name = ? WHERE id = ?').run('Alice', writer.id);
+    await send('POST', '/api/notes', writer.cookie, { text: 'Milk' });
+    expect((await send('GET', '/api/notes', writer.cookie)).json()).toMatchObject([{ author: 'Alice' }]);
+  });
+
+  it('joins with a device key when the key flag is on, and /members shows a key device', async () => {
+    const { member } = setup({ credentials: ['passkey', 'key'] });
+    const admin = member('admin');
+    const cookieFrom = (res, name) =>
+      [res.headers['set-cookie']]
+        .flat()
+        .find((c) => c?.startsWith(`${name}=`))
+        ?.split(';')[0];
+
+    const made = await app.inject({
+      method: 'POST',
+      url: '/api/link-requests',
+      headers: HEADERS,
+      payload: { label: 'Kiosk', name: 'Kay' },
+    });
+    const link = cookieFrom(made, 'notes_link');
+    const claim = await send('POST', '/api/link-requests/claim', admin.cookie, {
+      token: made.json().token,
+      outcome: 'new-member',
+    });
+    expect(claim.statusCode).toBe(200);
+    const done = await send('POST', '/api/link-requests/current/complete-key', link);
+    expect(done.statusCode).toBe(201);
+
+    const members = (await send('GET', '/api/members', admin.cookie)).json();
+    expect(members.find((m) => m.name === 'Kay').devices).toMatchObject([{ label: 'Kiosk', kind: 'key' }]);
+  });
+
+  it('refuses device keys unless the flag is on', async () => {
+    setup();
+    const res = await send('POST', '/api/groups/key', '', { groupName: 'G', label: 'L' });
+    expect(res.statusCode).toBe(403);
   });
 });

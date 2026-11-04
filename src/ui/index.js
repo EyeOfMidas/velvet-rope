@@ -3,4 +3,5 @@
 // default vr-* classes. For a fully custom UI, use velvet-rope/client instead.
 export { mountJoin, JOIN_TEXT, JOIN_CLASSES } from './join.js';
 export { createScanButton, mountScanButton, SCAN_BUTTON_TEXT } from './scan-button.js';
+export { openClaimDialog, CLAIM_TEXT, CLAIM_CLASSES } from './claim-dialog.js';
 export { openScanner, SCANNER_TEXT, SCANNER_CLASSES } from './scanner.js';

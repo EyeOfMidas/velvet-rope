@@ -2,7 +2,8 @@
 export default async function meRoutes(app, { sessions }) {
   app.get('/me', { onRequest: app.requireSession }, async (request, reply) => {
     const { session } = request;
-    sessions.setCookie(reply, session.token);
-    return { passkey: session.passkey, group: session.group };
+    sessions.setCookie(reply, session.token, session.device.kind);
+    const { member, device, group, passkey } = session;
+    return { member, device, group, passkey };
   });
 }

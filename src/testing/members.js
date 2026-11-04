@@ -5,20 +5,38 @@ import { wrapDatabase } from '../server/db/index.js';
 import { createSessions } from '../server/sessions.js';
 
 /**
- * Inserts a member (a passkey, without a credential) into the group and signs it in.
- * Returns { id, token }: send `${cookieName}=${token}` as the cookie.
+ * Inserts a member with one passkey device (without a credential) into the group and signs the
+ * device in. Returns { memberId, deviceId, token }: send `${cookieName}=${token}` as the cookie.
  */
 export function addMember(database, { groupId, role, label = `${role} device`, now = Date.now() }) {
   const db = wrapDatabase(database);
-  const id = randomUUID();
-  db.prepare(
-    `INSERT INTO passkeys (id, group_id, label, role, user_handle, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-  ).run(id, groupId, label, role, randomUUID(), now);
-  return { id, token: createSession(db, id, now) };
+  const memberId = randomUUID();
+  db.prepare('INSERT INTO members (id, group_id, name, role, created_at) VALUES (?, ?, ?, ?, ?)').run(
+    memberId,
+    groupId,
+    label,
+    role,
+    now,
+  );
+  const { deviceId, token } = addDevice(db, { memberId, label, now });
+  return { memberId, deviceId, token };
 }
 
-/** A new session for an existing passkey; returns the raw cookie value. */
-export function createSession(database, passkeyId, now = Date.now()) {
-  return createSessions({ db: wrapDatabase(database), cookieName: 'unused' }).create(passkeyId, now);
+/**
+ * Adds a device to an existing member and signs it in; returns { deviceId, token }. A passkey
+ * device gets a user handle (and no credential); a `key` device has none.
+ */
+export function addDevice(database, { memberId, kind = 'passkey', label = `${kind} device`, now = Date.now() }) {
+  const db = wrapDatabase(database);
+  const deviceId = randomUUID();
+  db.prepare(
+    `INSERT INTO devices (id, member_id, group_id, label, kind, user_handle, created_at)
+     SELECT ?, id, group_id, ?, ?, ?, ? FROM members WHERE id = ?`,
+  ).run(deviceId, label, kind, kind === 'passkey' ? randomUUID() : null, now, memberId);
+  return { deviceId, token: createSession(db, deviceId, now) };
+}
+
+/** A new session for an existing device; returns the raw cookie value. */
+export function createSession(database, deviceId, now = Date.now()) {
+  return createSessions({ db: wrapDatabase(database), cookieName: 'unused' }).create(deviceId, now);
 }

@@ -19,13 +19,14 @@ export function openDb(path = ':memory:') {
   return db;
 }
 
-export function buildApp({ db, origin = 'http://localhost:5174', now = Date.now }) {
+export function buildApp({ db, origin = 'http://localhost:5174', now = Date.now, credentials }) {
   const app = Fastify({ trustProxy: 'loopback' });
   app.register(velvetRope, {
     db,
     now,
     rp: { id: new URL(origin).hostname, name: 'velvet-rope notes', origin },
     roles,
+    credentials,
     cookiePrefix: 'notes',
     csrfHeader: 'X-Notes',
   });
@@ -39,8 +40,8 @@ export function buildApp({ db, origin = 'http://localhost:5174', now = Date.now 
     notes.get('/api/notes', { onRequest: app.requireCapability('read') }, async (req) =>
       db
         .prepare(
-          `SELECT n.id, n.text, n.created_by, p.label AS author FROM notes n
-             LEFT JOIN passkeys p ON p.id = n.created_by
+          `SELECT n.id, n.text, n.created_by, m.name AS author FROM notes n
+             LEFT JOIN members m ON m.id = n.created_by
             WHERE n.group_id = ? ORDER BY n.created_at`,
         )
         .all(req.session.group.id),
@@ -54,7 +55,7 @@ export function buildApp({ db, origin = 'http://localhost:5174', now = Date.now 
         note.id,
         req.session.group.id,
         text,
-        req.session.passkey.id,
+        req.session.member.id,
         now(),
       );
       app.velvetRope.events.publish(req.session.group.id, 'notes-changed', {});

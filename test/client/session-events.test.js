@@ -47,6 +47,14 @@ describe('connectSessionEvents', () => {
     expect(onGroupDeleted).toHaveBeenCalledWith({ name: 'Plans' });
   });
 
+  it('passes member-ended�s id and reason to onMemberEnded', () => {
+    const source = fakeSource();
+    const onMemberEnded = vi.fn();
+    connectSessionEvents(source, { onMemberEnded });
+    source.emit('member-ended', { id: 'm1', reason: 'removed' });
+    expect(onMemberEnded).toHaveBeenCalledWith({ id: 'm1', reason: 'removed' });
+  });
+
   it('ignores a role-changed event without a role, and stops when asked', () => {
     const source = fakeSource();
     const onRoleChanged = vi.fn();
