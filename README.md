@@ -205,10 +205,11 @@ the CSRF header.
 ```json
 [{ "id": "…", "name": "Sam", "role": "admin", "created_at": 1730000000000, "current": true,
    "devices": [{ "id": "…", "label": "Sam's phone", "kind": "passkey",
-                 "last_used_at": 1730000000000, "current": true }] }]
+                 "created_at": 1730000000000, "last_used_at": 1730000000000, "current": true }] }]
 ```
 
-`kind` is `passkey` or `key`. `current` marks the caller's own member and device.
+`kind` is `passkey` or `key`. A device's `created_at` is when it was added, and `last_used_at` is
+its last sign-in. `current` marks the caller's own member and device.
 
 Every refusal is `{ error: code, message }`. The codes are in `src/server/messages.js`. Pass
 `messages` to reword any of them.

@@ -42,7 +42,7 @@ export default async function memberRoutes(app, { db, now, roles, events, sessio
       .all(groupId);
     const devices = db
       .prepare(
-        `SELECT id, member_id, label, kind, last_used_at FROM devices
+        `SELECT id, member_id, label, kind, created_at, last_used_at FROM devices
           WHERE group_id = ? AND revoked_at IS NULL ORDER BY created_at, id`,
       )
       .all(groupId);
@@ -51,10 +51,11 @@ export default async function memberRoutes(app, { db, now, roles, events, sessio
       current: member.id === session.member.id,
       devices: devices
         .filter((device) => device.member_id === member.id)
-        .map(({ id, label, kind, last_used_at }) => ({
+        .map(({ id, label, kind, created_at, last_used_at }) => ({
           id,
           label,
           kind,
+          created_at,
           last_used_at,
           current: id === session.device.id,
         })),

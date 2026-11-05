@@ -8,6 +8,10 @@ upgrade.
 
 ## [Unreleased]
 
+### Added
+
+- `GET /members` devices carry `created_at`, the time each device was added.
+
 ## [0.3.0] - 2026-11-03
 
 ### Added

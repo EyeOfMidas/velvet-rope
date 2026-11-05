@@ -110,7 +110,16 @@ describe('GET /api/members', () => {
       role: 'viewer',
       created_at: expect.any(Number),
       current: false,
-      devices: [{ id: viewer.deviceId, label: 'Laptop', kind: 'passkey', last_used_at: clock.t, current: false }],
+      devices: [
+        {
+          id: viewer.deviceId,
+          label: 'Laptop',
+          kind: 'passkey',
+          created_at: expect.any(Number),
+          last_used_at: clock.t,
+          current: false,
+        },
+      ],
     });
     expect(items.map((p) => p.current)).toEqual([false, false, true]);
     expect(items[0]).toMatchObject({ id: creator.id, role: 'admin' });
