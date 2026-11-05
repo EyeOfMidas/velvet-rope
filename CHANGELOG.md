@@ -6,7 +6,8 @@ Every notable change to velvet-rope, newest first. The format follows
 may break things. Breaking changes are marked **Breaking:**, and the release notes say how to
 upgrade.
 
-## [Unreleased]
+
+## [0.3.1] - 2026-11-04
 
 ### Added
 
